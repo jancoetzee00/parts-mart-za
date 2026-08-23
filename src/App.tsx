@@ -13,6 +13,7 @@ import { SearchVisibilityModal } from './components/SearchVisibilityModal';
 import { SpecialsAndCompetitionsModal } from './components/SpecialsAndCompetitionsModal';
 import { DesktopShortcutModal } from './components/DesktopShortcutModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileInstallBanner } from './components/MobileInstallBanner';
 import {
   HardHat,
   Truck,
@@ -115,6 +116,9 @@ const MainContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-amber-500 selection:text-slate-950 pb-16 md:pb-0">
       
+      {/* Mobile & Tablet App Install Banner */}
+      <MobileInstallBanner onOpenDownloadModal={() => setIsDesktopShortcutOpen(true)} />
+
       {/* Header */}
       <Header
         onOpenSellerPortal={() => setIsSellerPortalOpen(true)}

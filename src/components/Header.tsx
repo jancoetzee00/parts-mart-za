@@ -14,7 +14,9 @@ import {
   Heart,
   Flame,
   Monitor,
-  ChevronRight
+  ChevronRight,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CategoryType } from '../types';
@@ -257,15 +259,18 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
-          {/* Desktop Link Button */}
+          {/* App Download / Quick Launcher Button */}
           <button
             onClick={onOpenDesktopShortcut}
             className="h-9 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/40 text-slate-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer group"
-            title="Download 1-Click Desktop Link or Install Standalone App"
+            title="Download App for Mobile Phone, Tablet or PC"
           >
-            <Monitor className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-            <span className="hidden xl:inline">Desktop App</span>
+            <Download className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="hidden xl:inline">Download App</span>
             <span className="xl:hidden">App</span>
+            <span className="hidden 2xl:inline text-[9px] bg-cyan-500/20 text-cyan-300 px-1 rounded font-normal">
+              Mobile/PC
+            </span>
           </button>
 
           {/* Saved Parts Button */}
@@ -409,7 +414,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
-            {/* Desktop App Link */}
+            {/* Mobile & Tablet App Download */}
             <button
               onClick={() => {
                 onOpenDesktopShortcut();
@@ -418,10 +423,12 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-full h-11 bg-slate-800 hover:bg-slate-750 border border-cyan-500/40 text-cyan-300 hover:text-cyan-200 rounded-xl text-xs font-bold flex items-center justify-between px-4 cursor-pointer shadow-sm"
             >
               <div className="flex items-center gap-2">
-                <Monitor className="w-4 h-4 text-cyan-400" />
-                <span>Desktop Shortcut & App Install</span>
+                <Smartphone className="w-4 h-4 text-cyan-400" />
+                <span>Download App (Phone, Tablet & PC)</span>
               </div>
-              <ChevronRight className="w-4 h-4 text-cyan-400/80" />
+              <span className="bg-cyan-500/20 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
+                Install
+              </span>
             </button>
 
             {/* Saved Parts */}

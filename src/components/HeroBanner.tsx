@@ -19,7 +19,8 @@ import {
   Flame,
   Trophy,
   Monitor,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PROVINCES_LIST } from '../data/initialData';
@@ -542,7 +543,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 </div>
               </div>
 
-              {/* Desktop App Shortcut Card */}
+              {/* App Download / Quick Launcher Card */}
               <div
                 onClick={onOpenDesktopShortcut}
                 className="bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30 hover:border-cyan-400 p-3 rounded-2xl flex flex-col justify-between gap-2.5 cursor-pointer transition-all shadow-md group hover:scale-[1.01]"
@@ -550,20 +551,20 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
-                      <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Desktop App</span>
+                      <Download className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Download App</span>
                     </div>
                     <span className="bg-cyan-500/20 text-cyan-300 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase">
-                      1-Click
+                      Mobile & PC
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 leading-snug">
-                    Download Windows/Mac shortcut or install PC app.
+                    Install for Android, iPhone, iPad, or Windows/Mac desktop.
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between pt-1 border-t border-cyan-500/20 text-xs text-cyan-400 font-bold group-hover:text-cyan-300">
-                  <span>Download Shortcut</span>
+                  <span>Get App Launcher</span>
                   <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
