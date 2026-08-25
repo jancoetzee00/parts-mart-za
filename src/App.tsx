@@ -12,6 +12,7 @@ import { SearchEngineModal } from './components/SearchEngineModal';
 import { SearchVisibilityModal } from './components/SearchVisibilityModal';
 import { SpecialsAndCompetitionsModal } from './components/SpecialsAndCompetitionsModal';
 import { DesktopShortcutModal } from './components/DesktopShortcutModal';
+import { FavoritesModal } from './components/FavoritesModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileInstallBanner } from './components/MobileInstallBanner';
 import {
@@ -45,6 +46,7 @@ const MainContent: React.FC = () => {
   const [isVisibilityModalOpen, setIsVisibilityModalOpen] = useState(false);
   const [isSpecialsCompetitionsOpen, setIsSpecialsCompetitionsOpen] = useState(false);
   const [isDesktopShortcutOpen, setIsDesktopShortcutOpen] = useState(false);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
   const [specialsModalTab, setSpecialsModalTab] = useState<'specials' | 'competitions' | 'post_special' | 'enter_competition'>('specials');
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
 
@@ -83,6 +85,9 @@ const MainContent: React.FC = () => {
       if (window.location.hash === '#desktop' || window.location.hash === '#shortcut') {
         setIsDesktopShortcutOpen(true);
       }
+      if (window.location.hash === '#favorites' || window.location.hash === '#saved') {
+        setIsFavoritesModalOpen(true);
+      }
     };
 
     if (window.location.hash === '#owner' || window.location.hash === '#admin') {
@@ -98,6 +103,9 @@ const MainContent: React.FC = () => {
     }
     if (window.location.hash === '#desktop' || window.location.hash === '#shortcut') {
       setIsDesktopShortcutOpen(true);
+    }
+    if (window.location.hash === '#favorites' || window.location.hash === '#saved') {
+      setIsFavoritesModalOpen(true);
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -132,6 +140,7 @@ const MainContent: React.FC = () => {
           setIsSpecialsCompetitionsOpen(true);
         }}
         onOpenDesktopShortcut={() => setIsDesktopShortcutOpen(true)}
+        onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
       />
 
       {/* Hero Banner */}
@@ -304,7 +313,21 @@ const MainContent: React.FC = () => {
         onOpenSellerPortal={() => setIsSellerPortalOpen(true)}
         onOpenDesktopShortcut={() => setIsDesktopShortcutOpen(true)}
         onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
+        onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
       />
+
+      {/* Favorites & Saved Parts Modal */}
+      {isFavoritesModalOpen && (
+        <FavoritesModal
+          isOpen={isFavoritesModalOpen}
+          onClose={() => setIsFavoritesModalOpen(false)}
+          onSelectItem={() => {}}
+          onOpenSellerPortal={() => {
+            setIsFavoritesModalOpen(false);
+            setIsSellerPortalOpen(true);
+          }}
+        />
+      )}
 
       {/* Search Engine Modal */}
       <SearchEngineModal

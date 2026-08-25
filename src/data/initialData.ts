@@ -72,6 +72,11 @@ export const INITIAL_OWNER_SETTINGS: OwnerSettings = {
     paymentReferenceFormat: 'PS-[COMPANY-NAME] or PS-[SELLER-ID]',
     additionalInstructions: 'Please use your registered Company Name or Seller ID as the EFT payment reference. Email proof of payment (POP) to accounts@partsmart.co.za or upload your reference number in the Seller Portal for instant review.',
     updatedAt: new Date().toISOString()
+  },
+  whatsappAutoReply: {
+    enabledByDefault: false,
+    defaultOutOfOfficeTemplate: 'Our scrap yard sales desk is currently closed or out of office. All spare part enquiries will be prioritised once trading opens. For urgent commercial breakdown emergencies, please leave your vehicle VIN and engine code.',
+    platformEmergencyPhone: '+27 82 459 1102'
   }
 };
 
@@ -90,6 +95,8 @@ export const INITIAL_SELLERS: Seller[] = [
     subscriptionStatus: 'active',
     subscriptionDueDate: '2026-09-01T00:00:00.000Z',
     lastPaymentRef: 'PS-HIGHVELD-AUG26',
+    outOfOfficeEnabled: false,
+    outOfOfficeMessage: 'Sales counter online. Inquiries received during business hours (07:30 - 17:00) answered within 15 minutes.',
     createdAt: '2026-01-15T00:00:00.000Z'
   },
   {
@@ -106,6 +113,9 @@ export const INITIAL_SELLERS: Seller[] = [
     subscriptionStatus: 'active',
     subscriptionDueDate: '2026-08-25T00:00:00.000Z',
     lastPaymentRef: 'PS-CAPETRUCK-9812',
+    outOfOfficeEnabled: true,
+    outOfOfficeMessage: '⚠️ Yard closed for weekend inventory audit & loadshedding cycle. All parts courier dispatches resume Monday at 08:00. For emergency fleet breakdown parts (Scania/Volvo/Freightliner), please WhatsApp our standby technician at 083 912 3344.',
+    outOfOfficeReturnDate: 'Monday 08:00',
     createdAt: '2026-02-10T00:00:00.000Z'
   },
   {

@@ -1,12 +1,70 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
+
+  // AI Assistant Endpoint using Gemini API server-side
+  app.post("/api/ai/assistant", async (req, res) => {
+    try {
+      const { prompt, mode, contextItem, buyerQuestionType } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.status(503).json({
+          error: "GEMINI_API_KEY is not configured on the server",
+          fallbackAvailable: true
+        });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      let systemInstruction = `You are the Part-Smart-ZA automotive and heavy machinery assistant specialized in the South African spares and scrap yard marketplace.
+You provide professional, practical, and context-rich answers in South African context (ZAR pricing, Courier Guy / The Freight Company shipping, SA provinces, engine/transmission fitment, VIN verification).`;
+
+      if (buyerQuestionType === 'shipping_costs') {
+        systemInstruction += `\nFocus specifically on South African freight, courier logistics, crating for heavy parts (engines/gearboxes), collection terms, and estimated delivery transit times between major hubs (Johannesburg, Cape Town, Durban, Port Elizabeth, Bloemfontein, Polokwane).`;
+      } else if (buyerQuestionType === 'stock_availability') {
+        systemInstruction += `\nFocus specifically on scrap yard inventory status, yard verification protocols, testing condition, serial number verification, holding periods, and WhatsApp photo confirmation.`;
+      }
+
+      let contents = prompt;
+      if (contextItem) {
+        contents = `Context Part Details:\n- Title: ${contextItem.title}\n- Category: ${contextItem.category}\n- Make/Model: ${contextItem.make} ${contextItem.model || ''}\n- Price: R${contextItem.priceZar}\n- City/Province: ${contextItem.city}, ${contextItem.province}\n- Part Number: ${contextItem.partNumber || 'N/A'}\n- Condition: ${contextItem.condition}\n\nRequest:\n${prompt}`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents,
+        config: {
+          systemInstruction,
+        }
+      });
+
+      res.json({
+        text: response.text || "No response generated.",
+        success: true
+      });
+    } catch (error: any) {
+      console.error("Gemini API Error in /api/ai/assistant:", error);
+      res.status(500).json({
+        error: error.message || "Failed to generate AI response",
+        success: false
+      });
+    }
+  });
 
   // API Health Endpoint
   app.get("/api/health", (req, res) => {

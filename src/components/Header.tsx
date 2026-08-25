@@ -16,7 +16,8 @@ import {
   Monitor,
   ChevronRight,
   Download,
-  Smartphone
+  Smartphone,
+  Zap
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CategoryType } from '../types';
@@ -31,6 +32,7 @@ interface HeaderProps {
   onOpenVisibilityCenter: () => void;
   onOpenSpecialsCompetitions: () => void;
   onOpenDesktopShortcut: () => void;
+  onOpenFavoritesModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,7 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearchEngine,
   onOpenVisibilityCenter,
   onOpenSpecialsCompetitions,
-  onOpenDesktopShortcut
+  onOpenDesktopShortcut,
+  onOpenFavoritesModal
 }) => {
   const { filter, setFilter, activeSeller, isOwnerAdminLoggedIn, sellers, favorites, specials } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -140,13 +143,14 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* AI Part Finder */}
+            {/* AI Part Finder & Quick Replies */}
             <button
               onClick={onOpenAiAssistant}
-              className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-semibold cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-2 py-0.5 rounded-full text-[11px] shrink-0"
+              className="text-amber-300 hover:text-amber-200 transition-colors flex items-center gap-1 font-bold cursor-pointer bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[11px] shrink-0 shadow-sm"
+              title="Open AI Part Assistant & Quick Reply Templates"
             >
-              <Wrench className="w-3 h-3 text-amber-400" />
-              <span>AI Finder</span>
+              <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+              <span>AI Quick Replies</span>
             </button>
           </div>
         </div>
@@ -275,18 +279,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Saved Parts Button */}
           <button
-            onClick={() => setFilter({ onlyFavorites: !filter.onlyFavorites })}
+            onClick={onOpenFavoritesModal}
             className={`h-9 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border ${
-              filter.onlyFavorites
-                ? 'bg-rose-600 border-rose-500 text-white shadow-rose-950/40'
+              favorites.length > 0
+                ? 'bg-rose-950/40 hover:bg-rose-900/50 border-rose-500/40 text-rose-200 hover:text-white'
                 : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-white'
             }`}
-            title="View saved inventory items"
+            title="Open Saved & Favorite Parts Modal"
           >
-            <Heart className={`w-3.5 h-3.5 ${filter.onlyFavorites ? 'fill-white text-white' : favorites.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+            <Heart className={`w-3.5 h-3.5 ${favorites.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
             <span className="hidden md:inline">Saved</span>
             {favorites.length > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${filter.onlyFavorites ? 'bg-white text-rose-600' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'}`}>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-black bg-rose-600 text-white shadow-sm">
                 {favorites.length}
               </span>
             )}
@@ -434,20 +438,20 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Saved Parts */}
             <button
               onClick={() => {
-                setFilter({ onlyFavorites: !filter.onlyFavorites });
+                onOpenFavoritesModal();
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full h-11 rounded-xl text-xs font-bold flex items-center justify-between px-4 cursor-pointer transition-all border ${
-                filter.onlyFavorites
-                  ? 'bg-rose-600 border-rose-500 text-white'
+                favorites.length > 0
+                  ? 'bg-rose-950/40 border-rose-500/50 text-rose-200 hover:text-white'
                   : 'bg-slate-800 hover:bg-slate-750 border-slate-700 text-slate-200'
               }`}
             >
               <div className="flex items-center gap-2">
-                <Heart className={`w-4 h-4 ${filter.onlyFavorites || favorites.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-400'} ${filter.onlyFavorites ? 'fill-white text-white' : ''}`} />
-                <span>Saved Inventory Items</span>
+                <Heart className={`w-4 h-4 ${favorites.length > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+                <span>Saved & Favorite Parts</span>
               </div>
-              <span className="bg-slate-950/60 px-2 py-0.5 rounded-full text-[10px]">
+              <span className="bg-rose-600 text-white font-black px-2 py-0.5 rounded-full text-[10px]">
                 {favorites.length}
               </span>
             </button>

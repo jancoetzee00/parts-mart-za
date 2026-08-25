@@ -59,6 +59,8 @@ interface AppContextType {
   logoutOwner: () => void;
   updateOwnerPassword: (newPass: string) => void;
   updateOwnerBankingDetails: (details: OwnerBankingDetails) => void;
+  updateOwnerWhatsappSettings: (autoReply: NonNullable<OwnerSettings['whatsappAutoReply']>) => void;
+  updateSellerOutOfOffice: (sellerId: string, enabled: boolean, message?: string, returnDate?: string) => void;
 
   // Favorites
   isFavorite: (itemId: string) => boolean;
@@ -376,6 +378,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveOwnerSettingsDoc(newSettings);
   };
 
+  const updateOwnerWhatsappSettings = (autoReply: NonNullable<OwnerSettings['whatsappAutoReply']>) => {
+    const newSettings: OwnerSettings = {
+      ...ownerSettings,
+      whatsappAutoReply: {
+        ...ownerSettings.whatsappAutoReply,
+        ...autoReply
+      }
+    };
+    setOwnerSettings(newSettings);
+    saveOwnerSettingsDoc(newSettings);
+  };
+
+  const updateSellerOutOfOffice = (
+    sellerId: string,
+    enabled: boolean,
+    message?: string,
+    returnDate?: string
+  ) => {
+    const existingSeller = sellers.find(s => s.id === sellerId);
+    if (!existingSeller) return;
+
+    const updatedSeller: Seller = {
+      ...existingSeller,
+      outOfOfficeEnabled: enabled,
+      outOfOfficeMessage: message !== undefined ? message : existingSeller.outOfOfficeMessage,
+      outOfOfficeReturnDate: returnDate !== undefined ? returnDate : existingSeller.outOfOfficeReturnDate
+    };
+
+    setSellers(prev => prev.map(s => (s.id === sellerId ? updatedSeller : s)));
+    saveSellerDoc(updatedSeller);
+  };
+
   // Seller operations
   const registerSeller = (
     sellerData: Omit<Seller, 'id' | 'createdAt' | 'subscriptionStatus' | 'subscriptionDueDate'>
@@ -649,6 +683,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logoutOwner,
         updateOwnerPassword,
         updateOwnerBankingDetails,
+        updateOwnerWhatsappSettings,
+        updateSellerOutOfOffice,
         isFavorite,
         toggleFavorite,
         clearFavorites,

@@ -24,10 +24,13 @@ import {
   Star,
   Layers,
   Flame,
-  Trophy
+  Trophy,
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
+import { generateWhatsappInquiryUrl, buildWhatsappInquiryText } from '../lib/whatsapp';
 import {
   InventoryItem,
   Seller,
@@ -54,6 +57,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     setActiveSellerId,
     registerSeller,
     updateSeller,
+    updateSellerOutOfOffice,
     ownerSettings,
     submitPaymentProof,
     getSellerListings,
@@ -64,12 +68,41 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     deleteInventoryItem
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'subscription' | 'switch_account' | 'register'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
   
   // Notice & notification state
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [itemPendingDelete, setItemPendingDelete] = useState<InventoryItem | null>(null);
+
+  // Yard-level out of office state
+  const [yardOofEnabled, setYardOofEnabled] = useState<boolean>(activeSeller?.outOfOfficeEnabled || false);
+  const [yardOofMessage, setYardOofMessage] = useState<string>(activeSeller?.outOfOfficeMessage || '');
+  const [yardOofReturnDate, setYardOofReturnDate] = useState<string>(activeSeller?.outOfOfficeReturnDate || '');
+  const [oofSavedSuccess, setOofSavedSuccess] = useState(false);
+
+  // Keep yard OOF state synced with activeSeller
+  React.useEffect(() => {
+    if (activeSeller) {
+      setYardOofEnabled(!!activeSeller.outOfOfficeEnabled);
+      setYardOofMessage(activeSeller.outOfOfficeMessage || '');
+      setYardOofReturnDate(activeSeller.outOfOfficeReturnDate || '');
+    }
+  }, [activeSeller?.id]);
+
+  const handleSaveSelfOutOfOffice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeSeller) return;
+    updateSellerOutOfOffice(
+      activeSeller.id,
+      yardOofEnabled,
+      yardOofMessage.trim(),
+      yardOofReturnDate.trim()
+    );
+    setOofSavedSuccess(true);
+    showNotice('Your WhatsApp Auto-Reply & Out-of-Office settings have been saved!');
+    setTimeout(() => setOofSavedSuccess(false), 3500);
+  };
 
   const showNotice = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setActionNotice({ type, message });
@@ -630,6 +663,23 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('outofoffice')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'outofoffice'
+                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+              <span>WhatsApp Auto-Reply</span>
+              {activeSeller?.outOfOfficeEnabled && (
+                <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                  OOF ON
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('switch_account')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'switch_account'
@@ -1040,6 +1090,206 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: WHATSAPP AUTO-REPLY & OUT-OF-OFFICE */}
+          {activeTab === 'outofoffice' && activeSeller && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {/* Intro Banner */}
+              <div className="bg-gradient-to-r from-emerald-950/40 via-slate-950 to-amber-950/30 border border-emerald-500/30 rounded-2xl p-5 shadow-lg">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                      <MessageSquare className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-base text-white flex items-center gap-2">
+                        WhatsApp Auto-Reply & Out-of-Office Notice
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
+                          {activeSeller.companyName}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-300">
+                        When enabled, any buyer sending a WhatsApp inquiry for your inventory will automatically have this notice appended to their message.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <span className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 ${
+                      yardOofEnabled
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    }`}>
+                      {yardOofEnabled ? '🏖️ Auto-Reply Active' : '🟢 Trading Online'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {oofSavedSuccess && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-center gap-2">
+                  <Check className="w-4 h-4" /> Your WhatsApp Out-of-Office settings have been saved successfully!
+                </div>
+              )}
+
+              <form onSubmit={handleSaveSelfOutOfOffice} className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-6">
+                {/* 1. Toggle Switch */}
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Enable Out-of-Office Auto-Reply</span>
+                    </label>
+                    <p className="text-[11px] text-slate-400">
+                      Toggle on when your yard sales counter is closed for weekends, public holidays, or stocktakes.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setYardOofEnabled(!yardOofEnabled)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-md ${
+                      yardOofEnabled
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-500/30 font-black'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    {yardOofEnabled ? '🏖️ Enabled (Out-of-Office)' : '🟢 Disabled (Online)'}
+                  </button>
+                </div>
+
+                {/* 2. Expected Reopen / Return Time */}
+                <div className="space-y-1.5 text-xs">
+                  <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Expected Reopening / Staff Return Date or Time</span>
+                    <span className="text-[10px] text-slate-500 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={yardOofReturnDate}
+                    onChange={(e) => setYardOofReturnDate(e.target.value)}
+                    placeholder="e.g. Monday 08:00, Tomorrow morning, After Easter long weekend"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+
+                  {/* Quick Return Time Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-slate-500 font-bold">Quick set:</span>
+                    {[
+                      'Monday 08:00',
+                      'Tomorrow morning',
+                      'Next Business Day',
+                      'Standby 24/7 Breakdown',
+                      'Until Further Notice'
+                    ].map((pill) => (
+                      <button
+                        key={pill}
+                        type="button"
+                        onClick={() => {
+                          setYardOofReturnDate(pill);
+                          if (!yardOofEnabled) setYardOofEnabled(true);
+                        }}
+                        className="text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 px-2.5 py-0.5 rounded-lg transition-all cursor-pointer"
+                      >
+                        {pill}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Custom Auto-Reply Message */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Custom WhatsApp Message Notice</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {yardOofMessage.length} chars
+                    </span>
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    value={yardOofMessage}
+                    onChange={(e) => setYardOofMessage(e.target.value)}
+                    placeholder="Enter your custom message or choose a preset below..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                {/* 4. Presets */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                    <Zap className="w-3 h-3" /> Quick Template Presets:
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYardOofMessage('Our scrap yard sales counter is closed for the weekend / after trading hours. All inquiries will be processed first thing Monday morning at 08:00.');
+                        setYardOofReturnDate('Monday 08:00');
+                        setYardOofEnabled(true);
+                      }}
+                      className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                    >
+                      <div className="font-bold text-slate-200 group-hover:text-amber-400">🌙 Weekend / After-Hours</div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Resumes Monday at 08:00.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYardOofMessage('We are closed for the South African public holiday. Courier dispatches and warehouse loading will resume on the next business day.');
+                        setYardOofReturnDate('Next Business Day');
+                        setYardOofEnabled(true);
+                      }}
+                      className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                    >
+                      <div className="font-bold text-slate-200 group-hover:text-amber-400">🇿🇦 SA Public Holiday</div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Closed for holiday, courier dispatches resume next business day.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYardOofMessage('Our yard is currently operating on generator backup during loadshedding. Part inquiries are monitored via our mobile standby desk.');
+                        setYardOofReturnDate('Within 2 hours');
+                        setYardOofEnabled(true);
+                      }}
+                      className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                    >
+                      <div className="font-bold text-slate-200 group-hover:text-amber-400">⚡ Loadshedding Backup</div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Operating on generator standby desk.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYardOofMessage('Yard counter closed. For critical fleet breakdown emergencies (Engines, Transmissions, Final Drives), please WhatsApp our standby technician directly.');
+                        setYardOofReturnDate('Standby 24/7');
+                        setYardOofEnabled(true);
+                      }}
+                      className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                    >
+                      <div className="font-bold text-slate-200 group-hover:text-amber-400">🚜 Fleet Emergency Standby</div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Emergency breakdown standby hotline.</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" /> Save WhatsApp Auto-Reply Settings
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

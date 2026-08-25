@@ -17,12 +17,20 @@ export function formatWhatsappPhoneNumber(phone: string): string {
 }
 
 /**
- * Generates a pre-filled WhatsApp deep link URL with item metadata and inquiry template
+ * Formats the Out-of-Office auto-reply block for WhatsApp messages
  */
-export function generateWhatsappInquiryUrl(item: InventoryItem, seller?: Seller): string {
-  const phone = seller?.whatsapp || item.sellerWhatsapp || seller?.phone || item.sellerPhone || '27820000000';
-  const cleanPhone = formatWhatsappPhoneNumber(phone);
+export function formatOutOfOfficeNotice(seller?: Seller): string {
+  if (!seller?.outOfOfficeEnabled) return '';
+  const message = seller.outOfOfficeMessage?.trim() || 'Our scrap yard sales desk is currently out of office. Inquiries will be reviewed as soon as trading hours resume.';
+  const returnDateInfo = seller.outOfOfficeReturnDate ? `\n⏳ *Expected Reopen/Return:* ${seller.outOfOfficeReturnDate}` : '';
 
+  return `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🏖️ *YARD OUT-OF-OFFICE AUTO-REPLY*${returnDateInfo}\n"${message}"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+}
+
+/**
+ * Builds raw text for a part inquiry message (including Out-of-Office notice if enabled)
+ */
+export function buildWhatsappInquiryText(item: InventoryItem, seller?: Seller): string {
   const formattedPrice = new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency: 'ZAR',
@@ -34,9 +42,9 @@ export function generateWhatsappInquiryUrl(item: InventoryItem, seller?: Seller)
   const conditionLabel = item.condition.replace(/_/g, ' ').toUpperCase();
   const partNumberLine = item.partNumber ? `\n• *Part/OEM No:* ${item.partNumber}` : '';
   const vehicleLine = `${item.make} ${item.model}${item.year ? ` (${item.year})` : ''}`;
+  const outOfOfficeBlock = formatOutOfOfficeNotice(seller);
 
-  const message =
-`*PART INQUIRY | Part-Smart ZA*
+  return `*PART INQUIRY | Part-Smart ZA*
 
 Hello ${contactName} (${companyName}),
 
@@ -52,7 +60,16 @@ Please confirm:
 1. Is this item currently in stock and available?
 2. What are the collection or courier dispatch options to my area?
 
-Thank you!`;
+Thank you!${outOfOfficeBlock}`;
+}
+
+/**
+ * Generates a pre-filled WhatsApp deep link URL with item metadata and inquiry template
+ */
+export function generateWhatsappInquiryUrl(item: InventoryItem, seller?: Seller): string {
+  const phone = seller?.whatsapp || item.sellerWhatsapp || seller?.phone || item.sellerPhone || '27820000000';
+  const cleanPhone = formatWhatsappPhoneNumber(phone);
+  const message = buildWhatsappInquiryText(item, seller);
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
@@ -83,6 +100,7 @@ export function generateWhatsappSpecialInquiryUrl(special: SellerSpecial, seller
   }).format(Math.max(0, special.originalPriceZar - special.specialPriceZar));
 
   const companyName = seller?.companyName || special.sellerName;
+  const outOfOfficeBlock = formatOutOfOfficeNotice(seller);
 
   const message =
 `*SPECIAL PROMO INQUIRY | Part-Smart ZA*
@@ -99,7 +117,7 @@ I saw your promotional special on *Part-Smart.ZA* and would like to claim this d
 
 Please let me know if this special is still active and how to proceed with payment and courier delivery or collection.
 
-Thank you!`;
+Thank you!${outOfOfficeBlock}`;
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }

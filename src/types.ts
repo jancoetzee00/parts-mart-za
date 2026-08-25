@@ -41,6 +41,9 @@ export interface Seller {
   subscriptionDueDate: string; // ISO Date String
   lastPaymentRef?: string;
   paymentProofSubmittedAt?: string;
+  outOfOfficeEnabled?: boolean;
+  outOfOfficeMessage?: string;
+  outOfOfficeReturnDate?: string;
   createdAt: string;
 }
 
@@ -87,6 +90,11 @@ export interface OwnerSettings {
   bankingDetails: OwnerBankingDetails;
   ownerEmail: string;
   ownerPhone: string;
+  whatsappAutoReply?: {
+    enabledByDefault?: boolean;
+    defaultOutOfOfficeTemplate?: string;
+    platformEmergencyPhone?: string;
+  };
 }
 
 export interface SellerSpecial {

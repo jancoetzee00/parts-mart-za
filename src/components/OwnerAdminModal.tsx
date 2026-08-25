@@ -29,6 +29,13 @@ import {
   AlertOctagon,
   Eye,
   MapPin,
+  MessageSquare,
+  Clock,
+  Phone,
+  ExternalLink,
+  RotateCcw,
+  Calendar,
+  Zap,
   Tag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -36,6 +43,7 @@ import { OwnerBankingDetails, Seller, SubscriptionStatus, SubscriptionPlanId, In
 import { SUBSCRIPTION_PLANS } from '../data/initialData';
 import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { isLocalAppEnvironment } from '../lib/env';
+import { generateWhatsappInquiryUrl, formatOutOfOfficeNotice, buildWhatsappInquiryText } from '../lib/whatsapp';
 
 interface OwnerAdminModalProps {
   onClose: () => void;
@@ -49,6 +57,8 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
     logoutOwner,
     updateOwnerPassword,
     updateOwnerBankingDetails,
+    updateOwnerWhatsappSettings,
+    updateSellerOutOfOffice,
     sellers,
     updateSellerStatus,
     updateSeller,
@@ -63,7 +73,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   const [loginError, setLoginError] = useState('');
 
   // Active Admin Tab
-  const [adminTab, setAdminTab] = useState<'banking' | 'sellers' | 'inventory' | 'unpaid' | 'security'>('sellers');
+  const [adminTab, setAdminTab] = useState<'banking' | 'sellers' | 'inventory' | 'outofoffice' | 'unpaid' | 'security'>('sellers');
 
   // Action status message
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -77,6 +87,46 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   // Security Password Change State
   const [newPassword, setNewPassword] = useState('');
   const [passSaveSuccess, setPassSaveSuccess] = useState(false);
+
+  // Out-of-Office & WhatsApp Auto-Reply Management State
+  const [selectedOofSellerId, setSelectedOofSellerId] = useState<string>(sellers[0]?.id || '');
+  const [oofSearch, setOofSearch] = useState('');
+  const [oofStatusFilter, setOofStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [oofSaveSuccess, setOofSaveSuccess] = useState(false);
+  const [globalOofSaveSuccess, setGlobalOofSaveSuccess] = useState(false);
+
+  // Global platform defaults state
+  const [globalDefaultTemplate, setGlobalDefaultTemplate] = useState(
+    ownerSettings.whatsappAutoReply?.defaultOutOfOfficeTemplate ||
+    'Our scrap yard sales desk is currently closed or out of office. All spare part enquiries will be prioritised once trading opens. For urgent commercial breakdown emergencies, please leave your vehicle VIN and engine code.'
+  );
+  const [globalEmergencyPhone, setGlobalEmergencyPhone] = useState(
+    ownerSettings.whatsappAutoReply?.platformEmergencyPhone || '+27 82 459 1102'
+  );
+
+  // Selected seller object
+  const currentOofSeller = useMemo(() => {
+    return sellers.find(s => s.id === selectedOofSellerId) || sellers[0] || null;
+  }, [sellers, selectedOofSellerId]);
+
+  // Form states for the selected yard's Out-of-Office settings
+  const [yardOofEnabled, setYardOofEnabled] = useState<boolean>(currentOofSeller?.outOfOfficeEnabled || false);
+  const [yardOofMessage, setYardOofMessage] = useState<string>(currentOofSeller?.outOfOfficeMessage || '');
+  const [yardOofReturnDate, setYardOofReturnDate] = useState<string>(currentOofSeller?.outOfOfficeReturnDate || '');
+
+  // Keep yard form synced when selected seller changes
+  React.useEffect(() => {
+    if (currentOofSeller) {
+      setYardOofEnabled(!!currentOofSeller.outOfOfficeEnabled);
+      setYardOofMessage(currentOofSeller.outOfOfficeMessage || '');
+      setYardOofReturnDate(currentOofSeller.outOfOfficeReturnDate || '');
+    }
+  }, [currentOofSeller?.id]);
+
+  // Out-of-office active count
+  const activeOofCount = useMemo(() => {
+    return sellers.filter(s => s.outOfOfficeEnabled).length;
+  }, [sellers]);
 
   // Sellers Filter State
   const [sellerSearch, setSellerSearch] = useState('');
@@ -111,6 +161,89 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
       showNotice('Authenticated as Part-Smart-ZA Platform Owner.');
     }
   };
+
+  // Filtered sellers for Out-of-Office console
+  const filteredOofSellers = useMemo(() => {
+    return sellers.filter(s => {
+      const q = oofSearch.toLowerCase();
+      const matchesSearch =
+        !q ||
+        s.companyName.toLowerCase().includes(q) ||
+        s.contactName.toLowerCase().includes(q) ||
+        s.phone.includes(q) ||
+        s.city.toLowerCase().includes(q) ||
+        s.province.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+      if (oofStatusFilter === 'active') return !!s.outOfOfficeEnabled;
+      if (oofStatusFilter === 'inactive') return !s.outOfOfficeEnabled;
+      return true;
+    });
+  }, [sellers, oofSearch, oofStatusFilter]);
+
+  // Handle Save Yard Out-of-Office
+  const handleSaveYardOof = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentOofSeller) return;
+    updateSellerOutOfOffice(
+      currentOofSeller.id,
+      yardOofEnabled,
+      yardOofMessage.trim(),
+      yardOofReturnDate.trim()
+    );
+    setOofSaveSuccess(true);
+    showNotice(`WhatsApp Auto-Reply settings saved for ${currentOofSeller.companyName}.`);
+    setTimeout(() => setOofSaveSuccess(false), 3000);
+  };
+
+  // Handle Save Global Platform Defaults
+  const handleSaveGlobalOofDefaults = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateOwnerWhatsappSettings({
+      enabled: true,
+      platformEmergencyPhone: globalEmergencyPhone.trim(),
+      defaultOutOfOfficeTemplate: globalDefaultTemplate.trim()
+    });
+    setGlobalOofSaveSuccess(true);
+    showNotice('Global WhatsApp default template & emergency standby phone saved.');
+    setTimeout(() => setGlobalOofSaveSuccess(false), 3000);
+  };
+
+  // Apply a quick preset template to the active yard form
+  const applyPresetTemplate = (presetMsg: string, presetDate?: string) => {
+    setYardOofMessage(presetMsg);
+    if (presetDate) setYardOofReturnDate(presetDate);
+    if (!yardOofEnabled) setYardOofEnabled(true);
+    showNotice('Preset template loaded into editor. Click "Save Yard Settings" to apply.');
+  };
+
+  // Sample listing for live simulator
+  const sampleYardItem = useMemo(() => {
+    if (!currentOofSeller) return null;
+    return inventory.find(i => i.sellerId === currentOofSeller.id) || inventory[0] || null;
+  }, [inventory, currentOofSeller]);
+
+  // Preview Seller with live draft settings
+  const simulatedSellerPreview: Seller | null = useMemo(() => {
+    if (!currentOofSeller) return null;
+    return {
+      ...currentOofSeller,
+      outOfOfficeEnabled: yardOofEnabled,
+      outOfOfficeMessage: yardOofMessage,
+      outOfOfficeReturnDate: yardOofReturnDate
+    };
+  }, [currentOofSeller, yardOofEnabled, yardOofMessage, yardOofReturnDate]);
+
+  // Computed simulated WhatsApp inquiry text
+  const simulatedInquiryText = useMemo(() => {
+    if (!sampleYardItem || !simulatedSellerPreview) return '';
+    return buildWhatsappInquiryText(sampleYardItem, simulatedSellerPreview);
+  }, [sampleYardItem, simulatedSellerPreview]);
+
+  // Computed simulated WhatsApp link
+  const simulatedWhatsappUrl = useMemo(() => {
+    if (!sampleYardItem || !simulatedSellerPreview) return '#';
+    return generateWhatsappInquiryUrl(sampleYardItem, simulatedSellerPreview);
+  }, [sampleYardItem, simulatedSellerPreview]);
 
   // Save Banking Details
   const handleSaveBanking = (e: React.FormEvent) => {
@@ -449,6 +582,23 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
               </button>
 
               <button
+                onClick={() => setAdminTab('outofoffice')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  adminTab === 'outofoffice'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                <span>WhatsApp Auto-Reply & Out-of-Office</span>
+                {activeOofCount > 0 && (
+                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full ml-1">
+                    {activeOofCount} Active
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setAdminTab('inventory')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   adminTab === 'inventory'
@@ -575,6 +725,16 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                                   <span className="text-[10px] text-amber-400 font-semibold">
                                     Plan: {s.planId}
                                   </span>
+
+                                  {s.outOfOfficeEnabled ? (
+                                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                      🏖️ Out-of-Office Active
+                                    </span>
+                                  ) : (
+                                    <span className="bg-slate-800/80 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-medium">
+                                      🟢 Online
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -585,6 +745,18 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                                   <span>Location: <strong className="text-slate-200">{s.city}, {s.province}</strong></span>
                                 </div>
 
+                                {s.outOfOfficeEnabled && s.outOfOfficeMessage && (
+                                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg px-2.5 py-1 text-[11px] text-amber-200/90 flex items-start gap-1.5 mt-1">
+                                    <span className="shrink-0 text-xs">🏖️</span>
+                                    <span className="line-clamp-1 italic">"{s.outOfOfficeMessage}"</span>
+                                    {s.outOfOfficeReturnDate && (
+                                      <span className="text-amber-400 font-bold ml-auto shrink-0 text-[10px]">
+                                        Returns: {s.outOfOfficeReturnDate}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
                                 {s.lastPaymentRef && (
                                   <div className="text-[11px] font-mono text-emerald-400">
                                     Submitted EFT Reference: <strong>{s.lastPaymentRef}</strong>
@@ -594,6 +766,23 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
 
                               {/* Owner Actions for Seller */}
                               <div className="flex items-center gap-2 flex-wrap">
+                                {/* Quick Out-of-Office Config Button */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedOofSellerId(s.id);
+                                    setAdminTab('outofoffice');
+                                  }}
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border ${
+                                    s.outOfOfficeEnabled
+                                      ? 'bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border-amber-500/40'
+                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                                  }`}
+                                  title="Configure custom WhatsApp Out-of-Office auto-reply for this scrap yard"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Auto-Reply</span>
+                                </button>
+
                                 {s.subscriptionStatus !== 'active' ? (
                                   <button
                                     onClick={() => handleApproveSeller(s.id)}
@@ -904,6 +1093,519 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                         🎉 All registered seller yards are up-to-date with active subscriptions!
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB: WHATSAPP AUTO-REPLY & OUT-OF-OFFICE MANAGEMENT */}
+              {/* ========================================================================= */}
+              {adminTab === 'outofoffice' && (
+                <div className="space-y-6 max-w-6xl mx-auto">
+                  {/* Top Intro Card */}
+                  <div className="bg-gradient-to-r from-emerald-950/40 via-slate-950 to-amber-950/30 border border-emerald-500/30 rounded-2xl p-5 shadow-lg">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                            <MessageSquare className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-black text-base text-white flex items-center gap-2">
+                              WhatsApp Auto-Reply & Out-of-Office Management
+                              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold uppercase">
+                                Real-Time Sync
+                              </span>
+                            </h3>
+                            <p className="text-xs text-slate-300">
+                              Configure yard-specific out-of-office notices, after-hours return dates, and holiday standby notices. Appended automatically to generated WhatsApp inquiries.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-center">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Active Out-of-Office</span>
+                          <span className="text-sm font-black text-amber-400">{activeOofCount} / {sellers.length} Yards</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Global Platform Default Settings Section */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <h4 className="font-bold text-xs text-amber-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" /> Platform Global WhatsApp Fallback Settings
+                        </h4>
+                        <p className="text-[11px] text-slate-400">
+                          These default templates are used as a platform-wide baseline when new yards configure their out-of-office messages.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveGlobalOofDefaults}
+                        className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow cursor-pointer flex items-center gap-1"
+                      >
+                        <Save className="w-3.5 h-3.5" /> Save Global Defaults
+                      </button>
+                    </div>
+
+                    {globalOofSaveSuccess && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-2.5 rounded-xl text-xs flex items-center gap-2">
+                        <Check className="w-4 h-4" /> Global WhatsApp settings saved!
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                      <div className="space-y-1 md:col-span-1">
+                        <label className="text-slate-300 font-bold flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-amber-400" /> Platform Emergency Standby Phone
+                        </label>
+                        <input
+                          type="text"
+                          value={globalEmergencyPhone}
+                          onChange={(e) => setGlobalEmergencyPhone(e.target.value)}
+                          placeholder="+27 82 459 1102"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                        />
+                        <span className="text-[10px] text-slate-500">Standby escalation line for heavy breakdown logistics.</span>
+                      </div>
+
+                      <div className="space-y-1 md:col-span-2">
+                        <label className="text-slate-300 font-bold flex items-center justify-between">
+                          <span>Default Auto-Reply Notice Template</span>
+                          <button
+                            type="button"
+                            onClick={() => setGlobalDefaultTemplate('Our scrap yard sales desk is currently closed or out of office. All spare part enquiries will be prioritised once trading opens. For urgent commercial breakdown emergencies, please leave your vehicle VIN and engine code.')}
+                            className="text-[10px] text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5" /> Reset Template
+                          </button>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={globalDefaultTemplate}
+                          onChange={(e) => setGlobalDefaultTemplate(e.target.value)}
+                          placeholder="Default message template..."
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Yard-by-Yard Management Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left: Yard Selector (5 cols) */}
+                    <div className="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3 flex flex-col max-h-[750px]">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h4 className="font-bold text-xs text-white flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-amber-400" /> Select Scrap Yard
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {filteredOofSellers.length} of {sellers.length}
+                        </span>
+                      </div>
+
+                      {/* Search and Filters */}
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={oofSearch}
+                            onChange={(e) => setOofSearch(e.target.value)}
+                            placeholder="Search yard name, city, phone..."
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setOofStatusFilter('all')}
+                            className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all ${
+                              oofStatusFilter === 'all'
+                                ? 'bg-amber-500 text-slate-950'
+                                : 'bg-slate-900 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            All ({sellers.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOofStatusFilter('active')}
+                            className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all flex items-center gap-1 ${
+                              oofStatusFilter === 'active'
+                                ? 'bg-amber-500 text-slate-950'
+                                : 'bg-slate-900 text-amber-400 hover:bg-slate-800'
+                            }`}
+                          >
+                            🏖️ Out-of-Office ({activeOofCount})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOofStatusFilter('inactive')}
+                            className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all ${
+                              oofStatusFilter === 'inactive'
+                                ? 'bg-amber-500 text-slate-950'
+                                : 'bg-slate-900 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            🟢 Online ({sellers.length - activeOofCount})
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Yard List Items */}
+                      <div className="space-y-1.5 overflow-y-auto flex-1 pr-1">
+                        {filteredOofSellers.length > 0 ? (
+                          filteredOofSellers.map((seller) => {
+                            const isSelected = currentOofSeller?.id === seller.id;
+                            const isOof = seller.outOfOfficeEnabled;
+                            const yardItemCount = inventory.filter(i => i.sellerId === seller.id).length;
+
+                            return (
+                              <button
+                                key={seller.id}
+                                type="button"
+                                onClick={() => setSelectedOofSellerId(seller.id)}
+                                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                  isSelected
+                                    ? 'bg-amber-500/15 border-amber-500 shadow-md ring-1 ring-amber-500/50'
+                                    : 'bg-slate-900/60 hover:bg-slate-900 border-slate-800'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1 space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-xs text-white truncate">
+                                      {seller.companyName}
+                                    </span>
+                                    {isOof ? (
+                                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] px-1.5 py-0.2 rounded font-bold">
+                                        🏖️ OOF
+                                      </span>
+                                    ) : (
+                                      <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] px-1.5 py-0.2 rounded font-bold">
+                                        ONLINE
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                    <span>{seller.city}, {seller.province}</span>
+                                    <span>•</span>
+                                    <span>{yardItemCount} Parts</span>
+                                  </div>
+
+                                  {isOof && seller.outOfOfficeReturnDate && (
+                                    <div className="text-[10px] text-amber-400/90 font-medium">
+                                      Returns: <strong>{seller.outOfOfficeReturnDate}</strong>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="shrink-0 text-slate-500">
+                                  {isSelected && <Check className="w-4 h-4 text-amber-400" />}
+                                </div>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="p-6 text-center text-xs text-slate-500">
+                            No scrap yards match your filter.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Yard Out-of-Office Configuration & Live Simulator (7 cols) */}
+                    <div className="lg:col-span-7 space-y-4">
+                      {currentOofSeller ? (
+                        <form onSubmit={handleSaveYardOof} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5">
+                          {/* Active Yard Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-black text-sm text-white">{currentOofSeller.companyName}</h3>
+                                <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-amber-400">
+                                  {currentOofSeller.id}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                                <span>Contact: <strong className="text-slate-200">{currentOofSeller.contactName}</strong></span>
+                                <span>•</span>
+                                <span>WhatsApp: <strong className="text-emerald-400 font-mono">{currentOofSeller.phone}</strong></span>
+                              </p>
+                            </div>
+
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Save className="w-3.5 h-3.5" /> Save Yard Settings
+                            </button>
+                          </div>
+
+                          {oofSaveSuccess && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl text-xs flex items-center gap-2">
+                              <Check className="w-4 h-4" /> Out-of-Office settings saved and applied to WhatsApp inquiries!
+                            </div>
+                          )}
+
+                          {/* 1. Out-of-Office Active Toggle Switch */}
+                          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between gap-4">
+                            <div className="space-y-0.5">
+                              <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                                <span>Out-of-Office Auto-Reply Status</span>
+                              </label>
+                              <p className="text-[11px] text-slate-400">
+                                When enabled, buyers submitting WhatsApp inquiries for this yard will see your custom notice appended.
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setYardOofEnabled(!yardOofEnabled)}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-md ${
+                                yardOofEnabled
+                                  ? 'bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-500/30 font-black'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                              }`}
+                            >
+                              {yardOofEnabled ? (
+                                <>
+                                  <span>🏖️ Active (Out-of-Office)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>🟢 Normal (Online)</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* 2. Expected Return / Reopen Date Input */}
+                          <div className="space-y-1.5 text-xs">
+                            <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Expected Reopening / Staff Return Date or Time</span>
+                              <span className="text-[10px] text-slate-500 font-normal">(Optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={yardOofReturnDate}
+                              onChange={(e) => setYardOofReturnDate(e.target.value)}
+                              placeholder="e.g. Monday at 08:00, Tomorrow morning, After Easter Weekend"
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                            />
+                            
+                            {/* Quick Return Time Pills */}
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <span className="text-[10px] text-slate-500 font-bold">Quick set:</span>
+                              {[
+                                'Monday 08:00',
+                                'Tomorrow morning',
+                                'Next Business Day',
+                                'Standby 24/7 Breakdown',
+                                'Until Further Notice'
+                              ].map((pill) => (
+                                <button
+                                  key={pill}
+                                  type="button"
+                                  onClick={() => {
+                                    setYardOofReturnDate(pill);
+                                    if (!yardOofEnabled) setYardOofEnabled(true);
+                                  }}
+                                  className="text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 px-2 py-0.5 rounded-lg transition-all cursor-pointer"
+                                >
+                                  {pill}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* 3. Custom Auto-Reply Message Textarea */}
+                          <div className="space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between">
+                              <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Custom Out-of-Office WhatsApp Message</span>
+                              </label>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {yardOofMessage.length} characters
+                              </span>
+                            </div>
+
+                            <textarea
+                              rows={3}
+                              value={yardOofMessage}
+                              onChange={(e) => setYardOofMessage(e.target.value)}
+                              placeholder="Enter the message buyers will see when contacting this yard while out of office..."
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          {/* 4. One-Click Scenario Presets */}
+                          <div className="space-y-2">
+                            <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                              <Zap className="w-3 h-3" /> 1-Click Common SA Yard Scenario Presets:
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => applyPresetTemplate(
+                                  'Our scrap yard sales counter is closed for the weekend / after trading hours. All inquiries will be processed first thing Monday morning at 08:00.',
+                                  'Monday 08:00'
+                                )}
+                                className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                              >
+                                <div className="font-bold text-slate-200 group-hover:text-amber-400 flex items-center gap-1">
+                                  <span>🌙 Weekend & After-Hours</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                  Closed for trading hours, resumes Monday 08:00.
+                                </p>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => applyPresetTemplate(
+                                  'We are closed for the South African public holiday. Courier dispatches and warehouse loading will resume on the next business day.',
+                                  'Next Business Day'
+                                )}
+                                className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                              >
+                                <div className="font-bold text-slate-200 group-hover:text-amber-400 flex items-center gap-1">
+                                  <span>🇿🇦 SA Public Holiday</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                  Holiday closure with courier dispatch note.
+                                </p>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => applyPresetTemplate(
+                                  'Our yard is currently operating on generator backup during loadshedding. Part inquiries are monitored via our mobile standby desk.',
+                                  'Within 2 hours'
+                                )}
+                                className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                              >
+                                <div className="font-bold text-slate-200 group-hover:text-amber-400 flex items-center gap-1">
+                                  <span>⚡ Loadshedding Backup</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                  Operating on standby generator desk.
+                                </p>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => applyPresetTemplate(
+                                  'Yard counter closed. For critical fleet breakdown emergencies (Engines, Transmissions, Final Drives), please WhatsApp our standby technician directly.',
+                                  'Standby 24/7'
+                                )}
+                                className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
+                              >
+                                <div className="font-bold text-slate-200 group-hover:text-amber-400 flex items-center gap-1">
+                                  <span>🚜 Heavy Fleet Emergency</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                  Emergency escalation for commercial breakdowns.
+                                </p>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 5. Live WhatsApp Chat Message Simulator */}
+                          <div className="space-y-2 pt-2 border-t border-slate-800">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                                <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Live WhatsApp Message Preview (What Buyers Send)</span>
+                              </span>
+
+                              {sampleYardItem && (
+                                <a
+                                  href={simulatedWhatsappUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>Test Deep Link</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+
+                            {/* WhatsApp Container */}
+                            <div className="bg-[#0b141a] rounded-2xl border border-slate-800 p-4 space-y-3 font-sans shadow-inner">
+                              {/* Simulated Chat Header */}
+                              <div className="flex items-center justify-between pb-2 border-b border-[#202c33] text-xs">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-xs">
+                                    {currentOofSeller.companyName.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-100 flex items-center gap-1 text-xs">
+                                      <span>{currentOofSeller.companyName}</span>
+                                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded font-bold">
+                                        BUSINESS
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] text-emerald-400">
+                                      {yardOofEnabled ? '🏖️ Out of office notice active' : '🟢 Online'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {currentOofSeller.phone}
+                                </div>
+                              </div>
+
+                              {/* WhatsApp Message Bubble */}
+                              <div className="flex justify-end">
+                                <div className="bg-[#005c4b] text-slate-100 rounded-2xl rounded-tr-sm p-3 max-w-md text-xs space-y-2 shadow">
+                                  <div className="whitespace-pre-wrap font-sans text-xs leading-relaxed">
+                                    {simulatedInquiryText || 'Select a yard to preview message...'}
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-1 text-[9px] text-slate-300">
+                                    <span>Just now</span>
+                                    <span className="text-sky-300 font-bold">✓✓</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Out-of-Office Banner Note inside simulator */}
+                              {yardOofEnabled && (
+                                <div className="bg-[#1f2c34] border border-amber-500/40 rounded-xl p-2.5 text-[11px] text-amber-200/90 flex items-start gap-2">
+                                  <span className="text-sm">🏖️</span>
+                                  <div>
+                                    <strong className="text-amber-400 block font-bold">
+                                      Auto-Reply Active for {currentOofSeller.companyName}:
+                                    </strong>
+                                    <span>
+                                      Buyers will see your custom notice appended automatically before sending their message.
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="p-12 text-center bg-slate-950 rounded-2xl border border-slate-800 text-xs text-slate-400">
+                          Please select a scrap yard from the list on the left to configure WhatsApp auto-reply settings.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

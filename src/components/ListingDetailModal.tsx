@@ -16,12 +16,15 @@ import {
   Info,
   CreditCard,
   Trash2,
-  Heart
+  Heart,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { InventoryItem } from '../types';
 import { useApp } from '../context/AppContext';
 import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
+import { AiPartAssistantModal } from './AiPartAssistantModal';
 
 interface ListingDetailModalProps {
   item: InventoryItem;
@@ -37,6 +40,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const { sellers, ownerSettings, isOwnerAdminLoggedIn, deleteInventoryItem, isFavorite, toggleFavorite } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isAiQuickReplyOpen, setIsAiQuickReplyOpen] = useState(false);
 
   const isFav = isFavorite(item.id);
   const seller = sellers.find(s => s.id === item.sellerId);
@@ -275,9 +279,19 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     Chat Directly on WhatsApp
                   </button>
 
+                  {/* 1-Click AI Quick Reply Templates */}
+                  <button
+                    onClick={() => setIsAiQuickReplyOpen(true)}
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/40 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    title="Generate context-aware shipping & stock quick reply templates"
+                  >
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Quick Reply & Shipping Inquiries</span>
+                  </button>
+
                   <button
                     onClick={handlePhone}
-                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Phone className="w-4 h-4 text-amber-400" />
                     Call Seller: {item.sellerPhone}
@@ -303,6 +317,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         </div>
 
       </div>
+
+      {/* AI Assistant & Quick Replies Modal */}
+      {isAiQuickReplyOpen && (
+        <AiPartAssistantModal
+          initialItem={item}
+          onClose={() => setIsAiQuickReplyOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -17,6 +17,7 @@ interface MobileBottomNavProps {
   onOpenSellerPortal: () => void;
   onOpenDesktopShortcut: () => void;
   onOpenAiAssistant: () => void;
+  onOpenFavoritesModal: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -24,7 +25,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenSpecials,
   onOpenSellerPortal,
   onOpenDesktopShortcut,
-  onOpenAiAssistant
+  onOpenAiAssistant,
+  onOpenFavoritesModal
 }) => {
   const { filter, setFilter, favorites, specials } = useApp();
 
@@ -36,7 +38,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   };
 
   const handleSavedClick = () => {
-    setFilter({ onlyFavorites: !filter.onlyFavorites });
+    onOpenFavoritesModal();
   };
 
   return (
