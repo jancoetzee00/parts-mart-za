@@ -24,7 +24,10 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Standard search directory placement',
       'Basic listing views counter',
       'Community email support'
-    ]
+    ],
+    discountPercentage: 0,
+    isDiscountActive: false,
+    promotionalBadge: 'Essential Tier'
   },
   {
     id: 'pro',
@@ -39,7 +42,11 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Direct WhatsApp & Phone lead routing',
       'Detailed buyer inquiry analytics',
       'Priority Email & WhatsApp support'
-    ]
+    ],
+    discountPercentage: 20,
+    isDiscountActive: true,
+    promotionalBadge: '🔥 20% PROMO DISCOUNT',
+    promoNotice: 'Spring promotional rate for active truck breakers'
   },
   {
     id: 'enterprise',
@@ -54,7 +61,11 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Bulk inventory CSV upload assistant',
       'Dedicated account manager',
       'Instant auto-check EFT verification'
-    ]
+    ],
+    discountPercentage: 30,
+    isDiscountActive: true,
+    promotionalBadge: '⭐ SPECIAL LAUNCH PROMO',
+    promoNotice: 'Special introductory dealer rate for heavy equipment yards'
   }
 ];
 
@@ -62,6 +73,16 @@ export const INITIAL_OWNER_SETTINGS: OwnerSettings = {
   passwordHash: 'admin123', // Default admin password
   ownerEmail: 'accounts@partsmart.co.za',
   ownerPhone: '+27 11 892 4000',
+  subscriptionPlans: SUBSCRIPTION_PLANS,
+  promotionalCampaign: {
+    enabled: true,
+    campaignTitle: 'Spring Yard Booster Promo',
+    headline: 'Promote Your Scrapyard: Up to 30% OFF Pro & Enterprise Plans',
+    badgeText: '🔥 SPRING YARD SALE',
+    announcementText: 'Special promotional rates for auto scrap yards, commercial truck breakers & plant dismantlers across South Africa.',
+    expiresAt: '2026-09-30T23:59:59.000Z',
+    discountPercentage: 30
+  },
   bankingDetails: {
     bankName: 'First National Bank (FNB)',
     accountHolder: 'Part-Smart ZA (Pty) Ltd',
@@ -88,6 +109,7 @@ export const INITIAL_SELLERS: Seller[] = [
     phone: '+27 82 459 1102',
     whatsapp: '27824591102',
     email: 'johan@highveldspares.co.za',
+    logoUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=200&h=200&q=80',
     province: 'Gauteng',
     city: 'Boksburg, Johannesburg',
     address: '45 Commissioner Street, Jet Park',
@@ -106,6 +128,7 @@ export const INITIAL_SELLERS: Seller[] = [
     phone: '+27 83 912 3344',
     whatsapp: '27839123344',
     email: 'sales@capetruckbreakers.co.za',
+    logoUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=200&h=200&q=80',
     province: 'Western Cape',
     city: 'Epping, Cape Town',
     address: '12 Viking Way, Epping Industria',
@@ -125,6 +148,7 @@ export const INITIAL_SELLERS: Seller[] = [
     phone: '+27 71 884 9201',
     whatsapp: '27718849201',
     email: 'devan@kznbakkiespares.co.za',
+    logoUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=200&h=200&q=80',
     province: 'KwaZulu-Natal',
     city: 'Pinetown, Durban',
     address: '88 Old Main Road',
@@ -141,6 +165,7 @@ export const INITIAL_SELLERS: Seller[] = [
     phone: '+27 84 300 7711',
     whatsapp: '27843007711',
     email: 'info@limpopomachinery.co.za',
+    logoUrl: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=200&h=200&q=80',
     province: 'Limpopo',
     city: 'Polokwane',
     address: '22 Industrial Loop',

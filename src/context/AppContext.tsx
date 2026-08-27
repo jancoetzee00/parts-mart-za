@@ -7,6 +7,8 @@ import {
   FilterState,
   SubscriptionStatus,
   SubscriptionPlanId,
+  SubscriptionPlan,
+  SubscriptionPromoCampaign,
   SellerSpecial,
   SellerCompetition,
   CompetitionEntry
@@ -44,6 +46,8 @@ interface AppContextType {
   inventory: InventoryItem[];
   sellers: Seller[];
   ownerSettings: OwnerSettings;
+  subscriptionPlans: SubscriptionPlan[];
+  promotionalCampaign?: SubscriptionPromoCampaign;
   activeSeller: Seller | null;
   activeSellerId: string | null;
   isOwnerAdminLoggedIn: boolean;
@@ -60,6 +64,24 @@ interface AppContextType {
   updateOwnerPassword: (newPass: string) => void;
   updateOwnerBankingDetails: (details: OwnerBankingDetails) => void;
   updateOwnerWhatsappSettings: (autoReply: NonNullable<OwnerSettings['whatsappAutoReply']>) => void;
+  updateSubscriptionPlans: (plans: SubscriptionPlan[]) => void;
+  updateSingleSubscriptionPlan: (planId: SubscriptionPlanId, updates: Partial<SubscriptionPlan>) => void;
+  updatePromotionalCampaign: (campaign: Partial<SubscriptionPromoCampaign>) => void;
+  getPlanEffectivePricing: (planInput: string | SubscriptionPlan) => {
+    plan: SubscriptionPlan;
+    planId: SubscriptionPlanId;
+    name: string;
+    description: string;
+    maxListings: number;
+    features: string[];
+    basePrice: number;
+    finalPrice: number;
+    hasDiscount: boolean;
+    discountPercent: number;
+    savingsZar: number;
+    promotionalBadge?: string;
+    promoNotice?: string;
+  };
   updateSellerOutOfOffice: (sellerId: string, enabled: boolean, message?: string, returnDate?: string) => void;
 
   // Favorites
@@ -390,6 +412,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveOwnerSettingsDoc(newSettings);
   };
 
+  // Subscription Plans & Promotional Pricing Management
+  const subscriptionPlans = ownerSettings.subscriptionPlans && ownerSettings.subscriptionPlans.length > 0
+    ? ownerSettings.subscriptionPlans
+    : SUBSCRIPTION_PLANS;
+
+  const promotionalCampaign = ownerSettings.promotionalCampaign;
+
+  const updateSubscriptionPlans = (plans: SubscriptionPlan[]) => {
+    const newSettings: OwnerSettings = {
+      ...ownerSettings,
+      subscriptionPlans: plans
+    };
+    setOwnerSettings(newSettings);
+    saveOwnerSettingsDoc(newSettings);
+  };
+
+  const updateSingleSubscriptionPlan = (planId: SubscriptionPlanId, updates: Partial<SubscriptionPlan>) => {
+    const currentPlans = ownerSettings.subscriptionPlans && ownerSettings.subscriptionPlans.length > 0
+      ? ownerSettings.subscriptionPlans
+      : SUBSCRIPTION_PLANS;
+
+    const updatedPlans = currentPlans.map(p => {
+      if (p.id === planId) {
+        return { ...p, ...updates };
+      }
+      return p;
+    });
+
+    const newSettings: OwnerSettings = {
+      ...ownerSettings,
+      subscriptionPlans: updatedPlans
+    };
+    setOwnerSettings(newSettings);
+    saveOwnerSettingsDoc(newSettings);
+  };
+
+  const updatePromotionalCampaign = (campaignUpdates: Partial<SubscriptionPromoCampaign>) => {
+    const defaultCampaign: SubscriptionPromoCampaign = {
+      enabled: false,
+      campaignTitle: 'Yard Booster Promo Campaign',
+      headline: 'Special Promotional Subscription Rates',
+      badgeText: 'LIMITED PROMO',
+      announcementText: 'Discounted monthly advertising packages for scrap yards & auto dismantlers.',
+      discountPercentage: 20
+    };
+
+    const newSettings: OwnerSettings = {
+      ...ownerSettings,
+      promotionalCampaign: {
+        ...defaultCampaign,
+        ...ownerSettings.promotionalCampaign,
+        ...campaignUpdates
+      }
+    };
+    setOwnerSettings(newSettings);
+    saveOwnerSettingsDoc(newSettings);
+  };
+
+  // Universal helper to resolve effective pricing for any plan
+  const getPlanEffectivePricing = (planInput: string | SubscriptionPlan) => {
+    const currentPlans = ownerSettings.subscriptionPlans && ownerSettings.subscriptionPlans.length > 0
+      ? ownerSettings.subscriptionPlans
+      : SUBSCRIPTION_PLANS;
+
+    let plan: SubscriptionPlan | undefined;
+    if (typeof planInput === 'string') {
+      let targetId = planInput;
+      if (planInput === 'starter') targetId = 'basic';
+      if (planInput === 'dealer_unlimited') targetId = 'enterprise';
+      plan = currentPlans.find(p => p.id === targetId);
+    } else {
+      plan = currentPlans.find(p => p.id === planInput.id) || planInput;
+    }
+
+    if (!plan) {
+      plan = currentPlans[0] || SUBSCRIPTION_PLANS[0];
+    }
+
+    const basePrice = plan.priceZar || 450;
+    const isPromoActive = Boolean(plan.isDiscountActive);
+    const discountPercent = (isPromoActive && typeof plan.discountPercentage === 'number')
+      ? plan.discountPercentage
+      : 0;
+
+    let finalPrice = basePrice;
+    if (isPromoActive) {
+      if (typeof plan.promoPriceZar === 'number' && plan.promoPriceZar > 0) {
+        finalPrice = plan.promoPriceZar;
+      } else if (discountPercent > 0) {
+        finalPrice = Math.round(basePrice * (1 - discountPercent / 100));
+      }
+    }
+
+    const hasDiscount = isPromoActive && finalPrice < basePrice;
+    const savingsZar = Math.max(0, basePrice - finalPrice);
+    const calculatedDiscountPct = hasDiscount
+      ? (discountPercent > 0 ? discountPercent : Math.round((savingsZar / basePrice) * 100))
+      : 0;
+
+    return {
+      plan,
+      planId: plan.id,
+      name: plan.name,
+      description: plan.description,
+      maxListings: plan.maxListings,
+      features: plan.features,
+      basePrice,
+      finalPrice,
+      hasDiscount,
+      discountPercent: calculatedDiscountPct,
+      savingsZar,
+      promotionalBadge: plan.promotionalBadge || (hasDiscount ? `🔥 ${calculatedDiscountPct}% OFF` : undefined),
+      promoNotice: plan.promoNotice
+    };
+  };
+
   const updateSellerOutOfOffice = (
     sellerId: string,
     enabled: boolean,
@@ -670,6 +808,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         inventory,
         sellers,
         ownerSettings,
+        subscriptionPlans,
+        promotionalCampaign,
         activeSeller,
         activeSellerId,
         isOwnerAdminLoggedIn,
@@ -684,6 +824,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOwnerPassword,
         updateOwnerBankingDetails,
         updateOwnerWhatsappSettings,
+        updateSubscriptionPlans,
+        updateSingleSubscriptionPlan,
+        updatePromotionalCampaign,
+        getPlanEffectivePricing,
         updateSellerOutOfOffice,
         isFavorite,
         toggleFavorite,

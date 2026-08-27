@@ -122,7 +122,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-amber-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-amber-500 selection:text-slate-950 pb-20 md:pb-0 safe-bottom">
       
       {/* Mobile & Tablet App Install Banner */}
       <MobileInstallBanner onOpenDownloadModal={() => setIsDesktopShortcutOpen(true)} />

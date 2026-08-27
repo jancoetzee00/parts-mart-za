@@ -22,6 +22,21 @@ export interface SubscriptionPlan {
   maxListings: number;
   description: string;
   features: string[];
+  discountPercentage?: number; // e.g. 50 for 50% discount
+  promoPriceZar?: number; // Custom discounted price override if set
+  isDiscountActive?: boolean; // Whether promo pricing is currently active
+  promotionalBadge?: string; // e.g. "🔥 50% LAUNCH DEAL", "SPRING SPECIAL"
+  promoNotice?: string; // e.g. "Special promotional rate for new yards!"
+}
+
+export interface SubscriptionPromoCampaign {
+  enabled: boolean;
+  campaignTitle: string;
+  headline: string;
+  badgeText: string;
+  announcementText: string;
+  expiresAt?: string;
+  discountPercentage?: number;
 }
 
 export type SubscriptionStatus = 'active' | 'unpaid' | 'pending_verification' | 'expired';
@@ -33,6 +48,7 @@ export interface Seller {
   phone: string;
   whatsapp: string;
   email: string;
+  logoUrl?: string; // Profile logo for yard branding and printable shelf labels
   province: SAProvince;
   city: string;
   address: string;
@@ -90,6 +106,8 @@ export interface OwnerSettings {
   bankingDetails: OwnerBankingDetails;
   ownerEmail: string;
   ownerPhone: string;
+  subscriptionPlans?: SubscriptionPlan[];
+  promotionalCampaign?: SubscriptionPromoCampaign;
   whatsappAutoReply?: {
     enabledByDefault?: boolean;
     defaultOutOfOfficeTemplate?: string;

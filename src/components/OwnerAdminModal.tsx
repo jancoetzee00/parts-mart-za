@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Lock,
@@ -36,10 +36,26 @@ import {
   RotateCcw,
   Calendar,
   Zap,
-  Tag
+  Tag,
+  Percent,
+  BadgePercent,
+  Sliders,
+  Plus,
+  Flame,
+  ArrowRight,
+  Gift
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { OwnerBankingDetails, Seller, SubscriptionStatus, SubscriptionPlanId, InventoryItem, CategoryType } from '../types';
+import {
+  OwnerBankingDetails,
+  Seller,
+  SubscriptionStatus,
+  SubscriptionPlanId,
+  SubscriptionPlan,
+  SubscriptionPromoCampaign,
+  InventoryItem,
+  CategoryType
+} from '../types';
 import { SUBSCRIPTION_PLANS } from '../data/initialData';
 import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { isLocalAppEnvironment } from '../lib/env';
@@ -52,6 +68,12 @@ interface OwnerAdminModalProps {
 export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => {
   const {
     ownerSettings,
+    subscriptionPlans,
+    promotionalCampaign,
+    updateSubscriptionPlans,
+    updateSingleSubscriptionPlan,
+    updatePromotionalCampaign,
+    getPlanEffectivePricing,
     isOwnerAdminLoggedIn,
     loginOwner,
     logoutOwner,
@@ -73,10 +95,47 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   const [loginError, setLoginError] = useState('');
 
   // Active Admin Tab
-  const [adminTab, setAdminTab] = useState<'banking' | 'sellers' | 'inventory' | 'outofoffice' | 'unpaid' | 'security'>('sellers');
+  const [adminTab, setAdminTab] = useState<'sellers' | 'pricing' | 'outofoffice' | 'inventory' | 'unpaid' | 'banking' | 'security'>('sellers');
 
   // Action status message
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Pricing & Promotional Campaigns Management State
+  const [plansForm, setPlansForm] = useState<SubscriptionPlan[]>(() => {
+    if (ownerSettings.subscriptionPlans && ownerSettings.subscriptionPlans.length > 0) {
+      return JSON.parse(JSON.stringify(ownerSettings.subscriptionPlans));
+    }
+    return JSON.parse(JSON.stringify(SUBSCRIPTION_PLANS));
+  });
+
+  const [campaignForm, setCampaignForm] = useState<SubscriptionPromoCampaign>(() => {
+    if (ownerSettings.promotionalCampaign) {
+      return { ...ownerSettings.promotionalCampaign };
+    }
+    return {
+      enabled: false,
+      campaignTitle: 'Yard Booster Launch Special',
+      headline: 'Special Scrapyard Promotion: Up to 50% OFF Subscription Rates',
+      badgeText: '🔥 PROMO DISCOUNT',
+      announcementText: 'Discounted monthly advertising packages for auto scrap yards, commercial truck breakers & plant dismantlers across South Africa.',
+      discountPercentage: 30,
+      expiresAt: ''
+    };
+  });
+
+  const [selectedPlanTab, setSelectedPlanTab] = useState<SubscriptionPlanId>('pro');
+  const [pricingSaveSuccess, setPricingSaveSuccess] = useState(false);
+  const [newFeatureText, setNewFeatureText] = useState('');
+
+  // Keep pricing form synced if owner settings reload
+  useEffect(() => {
+    if (ownerSettings.subscriptionPlans && ownerSettings.subscriptionPlans.length > 0) {
+      setPlansForm(JSON.parse(JSON.stringify(ownerSettings.subscriptionPlans)));
+    }
+    if (ownerSettings.promotionalCampaign) {
+      setCampaignForm({ ...ownerSettings.promotionalCampaign });
+    }
+  }, [ownerSettings.subscriptionPlans, ownerSettings.promotionalCampaign]);
 
   // Banking Details Form state
   const [bankForm, setBankForm] = useState<OwnerBankingDetails>({
@@ -407,9 +466,208 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   // Revenue calculation
   const activeSellersList = sellers.filter((s) => s.subscriptionStatus === 'active');
   const monthlyRevenue = activeSellersList.reduce((acc, s) => {
-    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === s.planId);
-    return acc + (plan ? plan.priceZar : 0);
+    const pricing = getPlanEffectivePricing(s.planId);
+    return acc + (pricing ? pricing.effectivePrice : 0);
   }, 0);
+
+  // Pricing & Promotional Discount Handlers
+  const handleUpdatePlanField = <K extends keyof SubscriptionPlan>(
+    planId: SubscriptionPlanId,
+    field: K,
+    value: SubscriptionPlan[K]
+  ) => {
+    setPlansForm((prev) =>
+      prev.map((p) => {
+        if (p.id === planId) {
+          const updated = { ...p, [field]: value };
+          if (field === 'discountPercentage' && typeof value === 'number') {
+            const base = updated.priceZar || 450;
+            if (value > 0) {
+              updated.promoPriceZar = Math.round(base * (1 - value / 100));
+            } else {
+              updated.promoPriceZar = undefined;
+            }
+          }
+          if (field === 'priceZar' && typeof value === 'number') {
+            if (updated.discountPercentage && updated.discountPercentage > 0) {
+              updated.promoPriceZar = Math.round(value * (1 - updated.discountPercentage / 100));
+            }
+          }
+          return updated;
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleTogglePlanDiscount = (planId: SubscriptionPlanId) => {
+    setPlansForm((prev) =>
+      prev.map((p) => {
+        if (p.id === planId) {
+          const nextActive = !p.isDiscountActive;
+          const defaultPct = (p.discountPercentage && p.discountPercentage > 0) ? p.discountPercentage : 30;
+          return {
+            ...p,
+            isDiscountActive: nextActive,
+            discountPercentage: nextActive ? defaultPct : (p.discountPercentage || 0),
+            promotionalBadge: nextActive ? (p.promotionalBadge || `🔥 ${defaultPct}% OFF PROMO`) : undefined,
+            promoPriceZar: nextActive ? Math.round(p.priceZar * (1 - defaultPct / 100)) : undefined
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleAddFeatureToPlan = (planId: SubscriptionPlanId) => {
+    if (!newFeatureText.trim()) return;
+    setPlansForm((prev) =>
+      prev.map((p) => {
+        if (p.id === planId) {
+          return {
+            ...p,
+            features: [...p.features, newFeatureText.trim()]
+          };
+        }
+        return p;
+      })
+    );
+    setNewFeatureText('');
+  };
+
+  const handleRemoveFeatureFromPlan = (planId: SubscriptionPlanId, featureIndex: number) => {
+    setPlansForm((prev) =>
+      prev.map((p) => {
+        if (p.id === planId) {
+          return {
+            ...p,
+            features: p.features.filter((_, idx) => idx !== featureIndex)
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  // Quick Promotional Presets
+  const applyGlobalPreset50Percent = () => {
+    setPlansForm((prev) =>
+      prev.map((p) => ({
+        ...p,
+        isDiscountActive: true,
+        discountPercentage: 50,
+        promoPriceZar: Math.round(p.priceZar * 0.5),
+        promotionalBadge: '🔥 50% LAUNCH DEAL',
+        promoNotice: 'Special 50% promotional rate for South African scrap yards & dismantlers.'
+      }))
+    );
+    setCampaignForm({
+      enabled: true,
+      campaignTitle: 'Spring Yard Booster 50% OFF Promotion',
+      headline: '🔥 50% OFF All Monthly Yard Subscription Plans!',
+      badgeText: 'LIMITED LAUNCH PROMO',
+      announcementText: 'Claim 50% off your monthly advertising package. List your heavy machinery, commercial truck spares, and bakkie inventory for half price.',
+      discountPercentage: 50,
+      expiresAt: 'Limited Time Offer'
+    });
+  };
+
+  const applyGlobalPreset30Percent = () => {
+    setPlansForm((prev) =>
+      prev.map((p) => ({
+        ...p,
+        isDiscountActive: p.id !== 'basic',
+        discountPercentage: 30,
+        promoPriceZar: Math.round(p.priceZar * 0.7),
+        promotionalBadge: p.id !== 'basic' ? '🔥 30% OFF PROMO' : p.promotionalBadge,
+        promoNotice: p.id !== 'basic' ? 'Special 30% discount on Pro & Enterprise tiers.' : undefined
+      }))
+    );
+    setCampaignForm({
+      enabled: true,
+      campaignTitle: 'Pro & Enterprise Yard Upgrade Boost',
+      headline: 'Special Scrapyard Booster: 30% OFF Pro & Enterprise Tiers',
+      badgeText: 'YARD BOOSTER',
+      announcementText: 'Boost your scrap yard sales with 30% off high-volume listing packages and nationwide search priority.',
+      discountPercentage: 30,
+      expiresAt: 'Valid this month'
+    });
+  };
+
+  const applyFlatRateLaunchSpecial = () => {
+    setPlansForm((prev) =>
+      prev.map((p) => {
+        if (p.id === 'basic') {
+          return {
+            ...p,
+            isDiscountActive: true,
+            discountPercentage: 56,
+            promoPriceZar: 199,
+            promotionalBadge: '⚡ R199 LAUNCH SPECIAL',
+            promoNotice: 'Special introductory flat rate: R199/mo for 10 listings.'
+          };
+        }
+        if (p.id === 'pro') {
+          return {
+            ...p,
+            isDiscountActive: true,
+            discountPercentage: 53,
+            promoPriceZar: 399,
+            promotionalBadge: '⚡ R399 FLASHSALE',
+            promoNotice: 'Special introductory rate: R399/mo for 50 listings + featured badge.'
+          };
+        }
+        return {
+          ...p,
+          isDiscountActive: true,
+          discountPercentage: 46,
+          promoPriceZar: 999,
+          promotionalBadge: '⚡ R999 VIP PROMO',
+          promoNotice: 'Special unlimited listings rate: R999/mo for fleet yards.'
+        };
+      })
+    );
+    setCampaignForm({
+      enabled: true,
+      campaignTitle: 'PartSmartZA Flat-Rate Launch Special',
+      headline: '⚡ First Month Flat-Rate Yard Launch Special (From R199/mo)',
+      badgeText: 'FLAT-RATE PROMO',
+      announcementText: 'Special introductory rates starting at just R199 per month for scrap yards and breaker yards.',
+      discountPercentage: 50,
+      expiresAt: 'First 50 Yards Only'
+    });
+  };
+
+  const resetAllDiscountsToStandard = () => {
+    setPlansForm((prev) =>
+      prev.map((p) => ({
+        ...p,
+        isDiscountActive: false,
+        discountPercentage: 0,
+        promoPriceZar: undefined,
+        promotionalBadge: p.id === 'pro' ? 'Most Popular' : p.id === 'enterprise' ? 'Maximum Reach' : 'Essential',
+        promoNotice: undefined
+      }))
+    );
+    setCampaignForm((prev) => ({
+      ...prev,
+      enabled: false
+    }));
+  };
+
+  const handleSaveAllPricingAndCampaign = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    updateSubscriptionPlans(plansForm);
+    updatePromotionalCampaign(campaignForm);
+    setPricingSaveSuccess(true);
+    setActionNotice({
+      type: 'success',
+      message: 'Subscription prices, promotional discounts, and campaign banners have been updated & published live!'
+    });
+    setTimeout(() => {
+      setPricingSaveSuccess(false);
+    }, 4000);
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-ZA', {
@@ -579,6 +837,23 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                 }`}
               >
                 <Users className="w-3.5 h-3.5" /> Manage & Delete Sellers ({sellers.length})
+              </button>
+
+              <button
+                onClick={() => setAdminTab('pricing')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  adminTab === 'pricing'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <BadgePercent className="w-3.5 h-3.5 text-amber-400" />
+                <span>Subscription Pricing & Promos</span>
+                {plansForm.some(p => p.isDiscountActive) && (
+                  <span className="bg-orange-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full ml-1 animate-pulse">
+                    PROMO ACTIVE
+                  </span>
+                )}
               </button>
 
               <button
@@ -1767,6 +2042,560 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                     Update Password
                   </button>
                 </form>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB: SUBSCRIPTION PRICING & PROMOTIONS MANAGEMENT */}
+              {/* ========================================================================= */}
+              {adminTab === 'pricing' && (
+                <div className="space-y-8 max-w-5xl mx-auto">
+                  
+                  {/* Pricing Top Banner */}
+                  <div className="bg-gradient-to-r from-amber-950/50 via-slate-950 to-orange-950/40 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-2xl flex items-center justify-center font-black shrink-0 shadow-lg">
+                          <BadgePercent className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-black text-white">Subscription Pricing & Discounts</h3>
+                            <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                              Owner Controls
+                            </span>
+                            {plansForm.some(p => p.isDiscountActive) && (
+                              <span className="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                <Flame className="w-3 h-3 animate-pulse" /> Promo Discounts Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Modify monthly subscription prices, create limited-time launch discounts, and manage plan advertising limits to attract scrap yards and equipment breakers.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSaveAllPricingAndCampaign()}
+                        className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Publish Changes Live</span>
+                      </button>
+                    </div>
+
+                    {pricingSaveSuccess && (
+                      <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-center gap-2 animate-in fade-in">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span><strong>Changes Live!</strong> Subscription prices and promotional campaigns have been updated and synchronized with Firestore.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 1. GLOBAL PROMOTIONAL CAMPAIGN & ANNOUNCEMENTS */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-lg">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+                      <div>
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-amber-400" />
+                          Platform-Wide Promotional Campaign Banner
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Display a prominent promotional announcement banner on the Seller Portal and subscription pricing tables.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setCampaignForm(prev => ({ ...prev, enabled: !prev.enabled }))}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border ${
+                          campaignForm.enabled
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 ring-2 ring-emerald-500/20'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${campaignForm.enabled ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
+                        <span>{campaignForm.enabled ? '🟢 Campaign Active' : '⚪ Campaign Inactive'}</span>
+                      </button>
+                    </div>
+
+                    {/* Quick Preset Promotion Buttons */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5" /> One-Click Promotional Presets:
+                        </label>
+                        <span className="text-[10px] text-slate-500">Applies pre-calculated promo rates across plans</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={applyGlobalPreset50Percent}
+                          className="p-3 bg-slate-900/80 hover:bg-slate-900 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl text-left transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-amber-400 group-hover:text-amber-300">🚀 50% Launch Deal</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">ALL</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Sets 50% discount on all plans (R225 / R425 / R925).
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={applyGlobalPreset30Percent}
+                          className="p-3 bg-slate-900/80 hover:bg-slate-900 border border-orange-500/30 hover:border-orange-500/60 rounded-2xl text-left transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-orange-400 group-hover:text-orange-300">🌸 30% Pro & Dealer</span>
+                            <span className="text-[9px] bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded font-mono font-bold">TIER 2+3</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Discounts Pro to R595 & Enterprise to R1,295.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={applyFlatRateLaunchSpecial}
+                          className="p-3 bg-slate-900/80 hover:bg-slate-900 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl text-left transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-emerald-400 group-hover:text-emerald-300">⚡ R199 Flash Promo</span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">FLAT</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            R199 Basic / R399 Pro / R999 Unlimited.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={resetAllDiscountsToStandard}
+                          className="p-3 bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl text-left transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-slate-300 group-hover:text-white">🔄 Standard Prices</span>
+                            <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono font-bold">RESET</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Disables all discounts; restores regular R450 / R850 / R1850.
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Campaign Settings Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Campaign Headline</label>
+                        <input
+                          type="text"
+                          value={campaignForm.headline}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, headline: e.target.value })}
+                          placeholder="e.g. Special Launch Promotion: Up to 50% OFF Subscription Rates"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Promotional Badge Text</label>
+                        <input
+                          type="text"
+                          value={campaignForm.badgeText || ''}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, badgeText: e.target.value })}
+                          placeholder="e.g. 🔥 SPRING PROMO DEAL"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1 md:col-span-2">
+                        <label className="text-slate-300 font-bold">Campaign Sub-Announcement Notice</label>
+                        <textarea
+                          rows={2}
+                          value={campaignForm.announcementText || ''}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, announcementText: e.target.value })}
+                          placeholder="Detailed promotional offer details displayed in the seller portal..."
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Validity / Expiry Notice (Optional)</label>
+                        <input
+                          type="text"
+                          value={campaignForm.expiresAt || ''}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, expiresAt: e.target.value })}
+                          placeholder="e.g. Valid until 30 Sept 2026 or First 50 Scrap Yards"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. INDIVIDUAL SUBSCRIPTION PLANS EDITOR */}
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <Sliders className="w-4 h-4 text-amber-400" />
+                          Individual Plan Price & Discount Editor
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Configure regular monthly pricing, active discounts, listing limits, and feature lists per tier.
+                        </p>
+                      </div>
+
+                      {/* Tier Select Tabs */}
+                      <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+                        {plansForm.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setSelectedPlanTab(p.id)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              selectedPlanTab === p.id
+                                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span>{p.name}</span>
+                            {p.isDiscountActive && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Active Selected Plan Editor Card */}
+                    {plansForm
+                      .filter((p) => p.id === selectedPlanTab)
+                      .map((plan) => {
+                        const basePrice = plan.priceZar || 450;
+                        const isDiscountActive = Boolean(plan.isDiscountActive);
+                        const discountPct = plan.discountPercentage || 0;
+                        const calculatedPromo = Math.round(basePrice * (1 - discountPct / 100));
+                        const finalPrice = isDiscountActive
+                          ? (plan.promoPriceZar !== undefined && plan.promoPriceZar > 0 ? plan.promoPriceZar : calculatedPromo)
+                          : basePrice;
+                        const savings = Math.max(0, basePrice - finalPrice);
+
+                        return (
+                          <div key={plan.id} className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
+                            
+                            {/* Plan Header Bar */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-base font-black text-white uppercase tracking-wider">{plan.name} Tier</span>
+                                  {isDiscountActive ? (
+                                    <span className="bg-orange-500/20 text-orange-300 border border-orange-500/40 text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                                      {plan.promotionalBadge || `🔥 ${discountPct}% DISCOUNT`}
+                                    </span>
+                                  ) : (
+                                    <span className="bg-slate-800 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                      Standard Rate
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-400">{plan.description}</p>
+                              </div>
+
+                              {/* Discount Active Switch */}
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePlanDiscount(plan.id)}
+                                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shrink-0 ${
+                                  isDiscountActive
+                                    ? 'bg-amber-500 text-slate-950 border-amber-400 ring-2 ring-amber-500/30'
+                                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-600'
+                                }`}
+                              >
+                                {isDiscountActive ? '🔥 Discount Enabled' : '⚪ Standard (No Discount)'}
+                              </button>
+                            </div>
+
+                            {/* Plan Fields Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+                              
+                              {/* 1. Base Price */}
+                              <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-2">
+                                <label className="text-slate-300 font-bold flex items-center justify-between">
+                                  <span>Regular Base Monthly Price</span>
+                                  <span className="text-[10px] text-slate-500 font-mono">ZAR</span>
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-2.5 text-amber-400 font-black text-sm">R</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="10"
+                                    value={plan.priceZar}
+                                    onChange={(e) => handleUpdatePlanField(plan.id, 'priceZar', Number(e.target.value))}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-black text-sm focus:outline-none focus:border-amber-500"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500">
+                                  Original regular subscription fee charged per calendar month.
+                                </p>
+                              </div>
+
+                              {/* 2. Promotional Discount Percentage */}
+                              <div className={`p-4 rounded-2xl border transition-all space-y-2 ${
+                                isDiscountActive ? 'bg-orange-950/20 border-orange-500/40' : 'bg-slate-900/90 border-slate-800'
+                              }`}>
+                                <div className="flex items-center justify-between">
+                                  <label className="text-slate-300 font-bold">Promotional Discount (%)</label>
+                                  <span className={`font-black font-mono text-sm ${isDiscountActive ? 'text-orange-400' : 'text-slate-500'}`}>
+                                    {discountPct}% OFF
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="90"
+                                    step="5"
+                                    disabled={!isDiscountActive}
+                                    value={discountPct}
+                                    onChange={(e) => handleUpdatePlanField(plan.id, 'discountPercentage', Number(e.target.value))}
+                                    className="flex-1 accent-amber-500 cursor-pointer disabled:opacity-40"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="90"
+                                    disabled={!isDiscountActive}
+                                    value={discountPct}
+                                    onChange={(e) => handleUpdatePlanField(plan.id, 'discountPercentage', Number(e.target.value))}
+                                    className="w-16 bg-slate-950 border border-slate-800 rounded-xl px-2 py-1 text-center font-bold text-white text-xs disabled:opacity-40"
+                                  />
+                                </div>
+
+                                <p className="text-[10px] text-slate-400">
+                                  {isDiscountActive
+                                    ? `Calculates to R${calculatedPromo} / month (Saves R${basePrice - calculatedPromo})`
+                                    : 'Enable discount switch above to apply percentage reduction.'}
+                                </p>
+                              </div>
+
+                              {/* 3. Direct Custom Promo Price Override */}
+                              <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-2">
+                                <label className="text-slate-300 font-bold flex items-center justify-between">
+                                  <span>Custom Override Price (Optional)</span>
+                                  <span className="text-[10px] text-slate-500 font-mono">ZAR</span>
+                                </label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-2.5 text-emerald-400 font-black text-sm">R</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="10"
+                                    disabled={!isDiscountActive}
+                                    value={plan.promoPriceZar !== undefined ? plan.promoPriceZar : ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                      handleUpdatePlanField(plan.id, 'promoPriceZar', val);
+                                    }}
+                                    placeholder={`Auto: R${calculatedPromo}`}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-black text-sm focus:outline-none focus:border-amber-500 disabled:opacity-40"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500">
+                                  Set a custom flat promotional rate (e.g. R199) or leave blank to use % calculation.
+                                </p>
+                              </div>
+
+                              {/* 4. Active Listings Limit */}
+                              <div className="space-y-1">
+                                <label className="text-slate-300 font-bold">Max Active Inventory Listings Limit</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={plan.maxListings}
+                                  onChange={(e) => handleUpdatePlanField(plan.id, 'maxListings', Number(e.target.value))}
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500">Enter 9999 for unlimited listings.</span>
+                              </div>
+
+                              {/* 5. Custom Promo Badge */}
+                              <div className="space-y-1">
+                                <label className="text-slate-300 font-bold">Promotional Card Badge Text</label>
+                                <input
+                                  type="text"
+                                  value={plan.promotionalBadge || ''}
+                                  onChange={(e) => handleUpdatePlanField(plan.id, 'promotionalBadge', e.target.value)}
+                                  placeholder="e.g. 🔥 50% LAUNCH DEAL or MOST POPULAR"
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                                />
+                              </div>
+
+                              {/* 6. Promotional Sub-Notice */}
+                              <div className="space-y-1">
+                                <label className="text-slate-300 font-bold">Promotional Sub-Notice / Terms</label>
+                                <input
+                                  type="text"
+                                  value={plan.promoNotice || ''}
+                                  onChange={(e) => handleUpdatePlanField(plan.id, 'promoNotice', e.target.value)}
+                                  placeholder="e.g. Special promotional rate for new auto breakers"
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                                />
+                              </div>
+
+                              {/* 7. Plan Description */}
+                              <div className="space-y-1 md:col-span-3">
+                                <label className="text-slate-300 font-bold">Plan Description for Scrap Yards</label>
+                                <textarea
+                                  rows={2}
+                                  value={plan.description}
+                                  onChange={(e) => handleUpdatePlanField(plan.id, 'description', e.target.value)}
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Plan Feature Items List Manager */}
+                            <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Plan Features & Perks Checklist:
+                                </label>
+                                <span className="text-[10px] text-slate-500">{plan.features.length} features listed</span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                {plan.features.map((feat, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-2"
+                                  >
+                                    <div className="flex items-center gap-2 text-slate-200">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                      <span className="text-[11px]">{feat}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveFeatureFromPlan(plan.id, idx)}
+                                      className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                      title="Remove feature"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Add Feature Input */}
+                              <div className="flex items-center gap-2 pt-1">
+                                <input
+                                  type="text"
+                                  value={newFeatureText}
+                                  onChange={(e) => setNewFeatureText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddFeatureToPlan(plan.id);
+                                    }
+                                  }}
+                                  placeholder="Type a new feature bullet and click Add..."
+                                  className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddFeatureToPlan(plan.id)}
+                                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Add Feature</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Real-Time Scrap Yard Preview Card */}
+                            <div className="bg-slate-900/60 p-5 rounded-2xl border border-dashed border-amber-500/40 space-y-3">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                                  <Eye className="w-3.5 h-3.5" /> Live Scrap Yard View Preview:
+                                </span>
+                                <span className="text-slate-400 text-[10px]">
+                                  This is how scrap yard owners will see the {plan.name} plan on Part-Smart-ZA
+                                </span>
+                              </div>
+
+                              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 max-w-md mx-auto">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-black text-base text-white uppercase">{plan.name} Plan</span>
+                                  {plan.promotionalBadge && (
+                                    <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                                      {plan.promotionalBadge}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  {isDiscountActive && finalPrice < basePrice ? (
+                                    <div className="flex items-baseline gap-2 flex-wrap">
+                                      <span className="text-slate-500 line-through text-base font-bold">R{basePrice}</span>
+                                      <span className="text-2xl font-black text-amber-400">R{finalPrice}</span>
+                                      <span className="text-xs text-slate-400">/ month</span>
+                                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full ml-auto">
+                                        Save R{savings}/mo
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-2xl font-black text-white">R{basePrice}</span>
+                                      <span className="text-xs text-slate-400">/ month</span>
+                                    </div>
+                                  )}
+                                  {plan.promoNotice && isDiscountActive && (
+                                    <p className="text-[10px] text-amber-400 font-medium pt-0.5">{plan.promoNotice}</p>
+                                  )}
+                                </div>
+
+                                <div className="text-xs text-amber-400 font-bold">
+                                  {plan.maxListings >= 9999 ? 'Unlimited Active Listings' : `${plan.maxListings} Active Listings Limit`}
+                                </div>
+
+                                <ul className="space-y-1.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                                  {plan.features.slice(0, 4).map((f, i) => (
+                                    <li key={i} className="flex items-center gap-2">
+                                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                      <span className="text-[11px]">{f}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Bottom Save & Publish Bar */}
+                  <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-slate-400">
+                      <strong className="text-white">Ready to activate?</strong> Saving will instantly update the subscription prices and live promo banners across the entire application and database.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAllPricingAndCampaign()}
+                      className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save & Publish All Subscription Pricing</span>
+                    </button>
+                  </div>
+
+                </div>
               )}
 
             </div>
