@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, Seller } from '../types';
 import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
+import { SellerTrustBadge } from './SellerTrustBadge';
 
 interface SellerContactModalProps {
   item: InventoryItem;
@@ -99,9 +100,7 @@ export const SellerContactModal: React.FC<SellerContactModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-white">{companyName}</h3>
-                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Verified Yard
-                </span>
+                <SellerTrustBadge seller={seller} item={item} variant="card-pill" />
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-amber-400" /> {item.city}, {item.province} | Attn: <span className="text-slate-200 font-semibold">{contactName}</span>

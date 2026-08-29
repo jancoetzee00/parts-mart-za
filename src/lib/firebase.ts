@@ -104,6 +104,33 @@ export async function testFirebaseConnection(): Promise<boolean> {
   }
 }
 
+// --- Firestore Sanitization Utility ---
+/**
+ * Recursively removes any undefined keys or array elements from objects before Firestore writes.
+ * Firestore does not allow `undefined` field values and throws a runtime exception if present.
+ */
+export function removeUndefined<T>(val: T): T {
+  if (val === undefined || val === null) {
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val
+      .filter((item) => item !== undefined)
+      .map((item) => (typeof item === 'object' && item !== null ? removeUndefined(item) : item)) as unknown as T;
+  }
+  if (typeof val === 'object') {
+    if (val instanceof Date) return val;
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(val as Record<string, any>)) {
+      if (value !== undefined) {
+        cleaned[key] = typeof value === 'object' && value !== null ? removeUndefined(value) : value;
+      }
+    }
+    return cleaned as T;
+  }
+  return val;
+}
+
 // --- Firestore Sync & Data APIs ---
 
 // 1. Sellers Collection Sync
@@ -131,7 +158,7 @@ export function subscribeSellers(
 export async function saveSellerDoc(seller: Seller) {
   const path = `sellers/${seller.id}`;
   try {
-    await setDoc(doc(db, 'sellers', seller.id), seller, { merge: true });
+    await setDoc(doc(db, 'sellers', seller.id), removeUndefined(seller), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -171,7 +198,7 @@ export function subscribeInventory(
 export async function saveInventoryDoc(item: InventoryItem) {
   const path = `inventory/${item.id}`;
   try {
-    await setDoc(doc(db, 'inventory', item.id), item, { merge: true });
+    await setDoc(doc(db, 'inventory', item.id), removeUndefined(item), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -209,7 +236,7 @@ export function subscribeOwnerSettings(
 export async function saveOwnerSettingsDoc(settings: OwnerSettings) {
   const path = 'owner_settings/config';
   try {
-    await setDoc(doc(db, 'owner_settings', 'config'), settings, { merge: true });
+    await setDoc(doc(db, 'owner_settings', 'config'), removeUndefined(settings), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -240,7 +267,7 @@ export function subscribeSpecials(
 export async function saveSpecialDoc(special: SellerSpecial) {
   const path = `specials/${special.id}`;
   try {
-    await setDoc(doc(db, 'specials', special.id), special, { merge: true });
+    await setDoc(doc(db, 'specials', special.id), removeUndefined(special), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -280,7 +307,7 @@ export function subscribeCompetitions(
 export async function saveCompetitionDoc(comp: SellerCompetition) {
   const path = `competitions/${comp.id}`;
   try {
-    await setDoc(doc(db, 'competitions', comp.id), comp, { merge: true });
+    await setDoc(doc(db, 'competitions', comp.id), removeUndefined(comp), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -311,7 +338,7 @@ export function subscribeCompetitionEntries(
 export async function saveCompetitionEntryDoc(entry: CompetitionEntry) {
   const path = `competition_entries/${entry.id}`;
   try {
-    await setDoc(doc(db, 'competition_entries', entry.id), entry, { merge: true });
+    await setDoc(doc(db, 'competition_entries', entry.id), removeUndefined(entry), { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -332,7 +359,7 @@ export async function seedInitialFirebaseDataIfEmpty(
     if (sellersSnap.empty) {
       console.log('Seeding initial sellers to Firestore...');
       for (const seller of initialSellers) {
-        await setDoc(doc(db, 'sellers', seller.id), seller);
+        await setDoc(doc(db, 'sellers', seller.id), removeUndefined(seller));
       }
     }
 
@@ -341,7 +368,7 @@ export async function seedInitialFirebaseDataIfEmpty(
     if (inventorySnap.empty) {
       console.log('Seeding initial inventory to Firestore...');
       for (const item of initialInventory) {
-        await setDoc(doc(db, 'inventory', item.id), item);
+        await setDoc(doc(db, 'inventory', item.id), removeUndefined(item));
       }
     }
 
@@ -349,7 +376,7 @@ export async function seedInitialFirebaseDataIfEmpty(
     const ownerSnap = await getDocs(collection(db, 'owner_settings'));
     if (ownerSnap.empty) {
       console.log('Seeding initial owner settings to Firestore...');
-      await setDoc(doc(db, 'owner_settings', 'config'), initialOwnerSettings);
+      await setDoc(doc(db, 'owner_settings', 'config'), removeUndefined(initialOwnerSettings));
     }
 
     // Check specials
@@ -358,7 +385,7 @@ export async function seedInitialFirebaseDataIfEmpty(
       if (specialsSnap.empty) {
         console.log('Seeding initial specials to Firestore...');
         for (const sp of initialSpecials) {
-          await setDoc(doc(db, 'specials', sp.id), sp);
+          await setDoc(doc(db, 'specials', sp.id), removeUndefined(sp));
         }
       }
     }
@@ -369,7 +396,7 @@ export async function seedInitialFirebaseDataIfEmpty(
       if (compsSnap.empty) {
         console.log('Seeding initial competitions to Firestore...');
         for (const cp of initialCompetitions) {
-          await setDoc(doc(db, 'competitions', cp.id), cp);
+          await setDoc(doc(db, 'competitions', cp.id), removeUndefined(cp));
         }
       }
     }
@@ -380,7 +407,7 @@ export async function seedInitialFirebaseDataIfEmpty(
       if (entriesSnap.empty) {
         console.log('Seeding initial competition entries to Firestore...');
         for (const en of initialEntries) {
-          await setDoc(doc(db, 'competition_entries', en.id), en);
+          await setDoc(doc(db, 'competition_entries', en.id), removeUndefined(en));
         }
       }
     }

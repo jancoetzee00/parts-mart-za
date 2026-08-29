@@ -26,37 +26,76 @@
   }
 }
 
-/* Print Optimization for Scrap Yard Inventory WhatsApp QR Tags & Shelf Labels */
+/* Print Optimization for Scrap Yard Inventory WhatsApp QR Tags, Thermal Labels & Shelf Labels */
 @media print {
-  body {
+  @page {
+    margin: 3mm;
+    size: auto;
+  }
+
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
     overflow: visible !important;
+    height: auto !important;
   }
 
-  header, footer, nav, aside, .no-print, button, .modal-backdrop-blur {
+  header, footer, nav, aside, .no-print, button, .modal-backdrop-blur, .no-print-element {
     display: none !important;
   }
 
   .print-only-container {
     display: block !important;
     width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
   }
 
   .print-qr-tag {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
     border: 2px solid #000000 !important;
     background: #ffffff !important;
     color: #000000 !important;
     box-shadow: none !important;
+    margin-bottom: 10px !important;
   }
 
   .print-qr-tag * {
     color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  .print-thermal-58 {
+    width: 52mm !important;
+    max-width: 52mm !important;
+    margin: 0 auto 6mm auto !important;
+    padding: 3mm !important;
+    border: 1px dashed #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    font-family: monospace, system-ui, -apple-system, sans-serif !important;
+  }
+
+  .print-thermal-80 {
+    width: 74mm !important;
+    max-width: 74mm !important;
+    margin: 0 auto 6mm auto !important;
+    padding: 4mm !important;
+    border: 1px dashed #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    font-family: monospace, system-ui, -apple-system, sans-serif !important;
+  }
+
+  .print-thermal-roll-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
   }
 }
