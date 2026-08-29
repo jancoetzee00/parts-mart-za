@@ -685,9 +685,9 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 )}
               </div>
             </div>
-            {promotionalCampaign.globalDiscountPercentage > 0 && (
+            {((promotionalCampaign.discountPercentage || (promotionalCampaign as any).globalDiscountPercentage || 0) > 0) && (
               <div className="px-3.5 py-1.5 bg-orange-500 text-slate-950 font-black text-xs rounded-xl shadow-md shrink-0 uppercase tracking-wider self-start sm:self-auto">
-                {promotionalCampaign.globalDiscountPercentage}% OFF Applied
+                {promotionalCampaign.discountPercentage || (promotionalCampaign as any).globalDiscountPercentage}% OFF Applied
               </div>
             )}
           </div>
@@ -2279,7 +2279,17 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 {/* Choose Subscription Plan Tiered Table */}
                 <div className="space-y-3 pt-2">
                   <label className="text-xs font-bold text-amber-400 block border-b border-slate-800 pb-2">
-                    Selected Subscription Plan: <span className="text-white uppercase font-black">{getActivePlan(regForm.planId).name} (R{getActivePlan(regForm.planId).priceZar}/mo)</span>
+                    Selected Subscription Plan:{' '}
+                    <span className="text-white uppercase font-black">
+                      {getActivePlan(regForm.planId).name}{' '}
+                      {(() => {
+                        const pricing = getPlanEffectivePricing(regForm.planId);
+                        if (pricing.isDiscountActive && pricing.effectivePrice < pricing.originalPrice) {
+                          return `(R${pricing.effectivePrice}/mo • ${pricing.discountPercentage}% OFF Promo)`;
+                        }
+                        return `(R${pricing.effectivePrice}/mo)`;
+                      })()}
+                    </span>
                   </label>
 
                   {renderPlansComparisonTable(regForm.planId, (pId) => setRegForm({ ...regForm, planId: pId }))}
