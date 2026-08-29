@@ -18,7 +18,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { SAProvince, Seller } from '../types';
 import { PROVINCES_LIST } from '../data/initialData';
-import { SellerTrustBadge } from './SellerTrustBadge';
 
 interface SellersDirectoryModalProps {
   onClose: () => void;
@@ -321,7 +320,15 @@ export const SellersDirectoryModal: React.FC<SellersDirectoryModalProps> = ({
                                     </div>
                                   </div>
 
-                                  <SellerTrustBadge seller={seller} variant="card-pill" />
+                                  {seller.subscriptionStatus === 'active' ? (
+                                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 flex items-center gap-1">
+                                      <CheckCircle2 className="w-2.5 h-2.5" /> VERIFIED YARD
+                                    </span>
+                                  ) : (
+                                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0">
+                                      {seller.subscriptionStatus.toUpperCase()}
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Contact Details */}

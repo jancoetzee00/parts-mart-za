@@ -17,7 +17,6 @@ import { InventoryItem } from '../types';
 import { useApp } from '../context/AppContext';
 import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { SellerContactModal } from './SellerContactModal';
-import { SellerTrustBadge } from './SellerTrustBadge';
 import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
 
 interface InventoryCardProps {
@@ -134,8 +133,8 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onSelect }) 
             }}
           />
 
-          {/* Top Left: Heart Favorite Toggle, Featured Badge & Visual Trust Badge */}
-          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 flex-wrap max-w-[85%]">
+          {/* Top Left: Heart Favorite Toggle & Featured Badge */}
+          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
             <button
               type="button"
               onClick={(e) => {
@@ -159,9 +158,6 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onSelect }) 
                 FEATURED
               </div>
             )}
-
-            {/* Visual Seller Trust Badge on Inventory Card Photo */}
-            <SellerTrustBadge seller={seller} item={item} variant="card-overlay" />
           </div>
 
           {/* Condition Badge & Owner Delete Button */}
@@ -241,8 +237,19 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onSelect }) 
               </div>
             </div>
 
-            {/* Seller Name, Yard Logo & Visual Trust Badge */}
-            <SellerTrustBadge seller={seller} item={item} variant="card-footer" />
+            {/* Seller Name and Verification */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {isSellerActive ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                )}
+                <span className="font-semibold text-slate-300 truncate">
+                  {item.sellerName}
+                </span>
+              </div>
+            </div>
 
             {/* Action Buttons: WhatsApp Inquiry (Primary) + Phone/Details (Secondary) */}
             <div className="grid grid-cols-12 gap-2 pt-1">

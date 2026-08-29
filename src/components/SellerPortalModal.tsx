@@ -33,22 +33,7 @@ import {
   Download,
   Share2,
   Smartphone,
-  Tag,
-  Crown,
-  ChevronRight,
-  TrendingUp,
-  Radio,
-  HelpCircle,
-  CheckCheck,
-  Sliders,
-  Settings2,
-  Maximize2,
-  FileText,
-  Scissors,
-  CheckSquare,
-  Square,
-  ListChecks,
-  Image as ImageIcon
+  Tag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
@@ -141,7 +126,6 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     phone: '',
     whatsapp: '',
     email: '',
-    logoUrl: '',
     province: 'Gauteng' as SAProvince,
     city: 'Johannesburg',
     address: '12 Main Road',
@@ -153,55 +137,16 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
   const [paymentSuccessNote, setPaymentSuccessNote] = useState('');
   const [planChangeNote, setPlanChangeNote] = useState('');
 
-  // Yard Branding & Profile Logo Modal State
-  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
-  const [brandingLogoInput, setBrandingLogoInput] = useState('');
-
-  // Subscription Plan Upgrade Dialog & Listing Limit State
-  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<{
-    id: SubscriptionPlanId;
-    name: string;
-    price: number;
-    originalPrice: number;
-    discountPercentage: number;
-    isDiscountActive: boolean;
-    maxListingsText: string;
-    maxListingsNum: number;
-    isUpgrade: boolean;
-    features: string[];
-    description: string;
-  } | null>(null);
-
-  const [limitWarningModal, setLimitWarningModal] = useState<{
-    currentCount: number;
-    maxAllowed: number;
-    planName: string;
-  } | null>(null);
-
-  // Multi-Select & Bulk Printing State
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-
   // Item Form Modal state (For Adding / Editing Inventory)
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
-  // Shelf Label & QR Code Generator State for Inventory Listings
-  type ShelfLabelFormat = 'thermal_58' | 'thermal_80' | 'shelf_tag' | 'bin_sticker' | 'counter_card';
+  // QR Code Generator State for Inventory Listings
   const [qrModalItem, setQrModalItem] = useState<InventoryItem | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [qrTagFormat, setQrTagFormat] = useState<ShelfLabelFormat>('thermal_58');
-  const [labelOptions, setLabelOptions] = useState({
-    showPrice: true,
-    showPartNumber: true,
-    showSellerInfo: true,
-    showCondition: true,
-    showYardLogo: true, // Optional 'Add Yard Logo' for printable shelf & thermal labels
-    highContrastThermal: true,
-    copiesCount: 1
-  });
+  const [qrTagFormat, setQrTagFormat] = useState<'shelf_tag' | 'bin_sticker' | 'counter_card'>('shelf_tag');
   const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(false);
   const [batchQrPrintMode, setBatchQrPrintMode] = useState<boolean>(false);
-  const [batchLabelFormat, setBatchLabelFormat] = useState<ShelfLabelFormat>('thermal_58');
   const [batchQrItems, setBatchQrItems] = useState<{ item: InventoryItem; qrDataUrl: string; waUrl: string }[]>([]);
 
   const [itemForm, setItemForm] = useState({
@@ -255,83 +200,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     showNotice(`Subscription plan updated to ${targetPlan.name}`);
   };
 
-  // Helper to look up yard profile logo
-  const getSellerLogo = (sellerId?: string): string | undefined => {
-    if (sellerId) {
-      const s = sellers.find(seller => seller.id === sellerId);
-      if (s?.logoUrl) return s.logoUrl;
-    }
-    if (activeSeller?.logoUrl) return activeSeller.logoUrl;
-    return undefined;
-  };
-
-  // Helper to render Yard Profile Logo across label formats
-  const renderYardLogo = (sellerId?: string, isThermal?: boolean, customClassName?: string) => {
-    if (!labelOptions.showYardLogo) return null;
-    const logo = getSellerLogo(sellerId);
-    const yardObj = sellers.find(s => s.id === sellerId) || activeSeller;
-    const yardName = yardObj?.companyName || 'Yard';
-
-    if (logo) {
-      return (
-        <div className={`inline-flex items-center justify-center shrink-0 ${customClassName || ''}`}>
-          <img
-            src={logo}
-            alt={`${yardName} Logo`}
-            referrerPolicy="no-referrer"
-            className={`object-contain ${
-              isThermal && labelOptions.highContrastThermal
-                ? 'filter grayscale contrast-200 brightness-95'
-                : ''
-            } ${customClassName ? '' : 'max-h-7 max-w-[110px]'}`}
-          />
-        </div>
-      );
-    }
-
-    // High contrast typography insignia fallback when no image logo is uploaded
-    return (
-      <div
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-900/40 bg-slate-100 text-slate-950 text-[8px] font-black tracking-tight uppercase shrink-0 ${
-          isThermal && labelOptions.highContrastThermal ? 'border-2 border-slate-950 bg-white' : ''
-        } ${customClassName || ''}`}
-      >
-        <Building2 className="w-2.5 h-2.5 text-slate-800 shrink-0" />
-        <span className="truncate max-w-[90px]">{yardName.split(' ')[0]}</span>
-      </div>
-    );
-  };
-
-  const handleOpenBrandingModal = () => {
-    if (!activeSeller) return;
-    setBrandingLogoInput(activeSeller.logoUrl || '');
-    setIsBrandingModalOpen(true);
-  };
-
-  const handleSaveBranding = (newLogoUrl: string) => {
-    if (!activeSeller) return;
-    updateSeller({
-      ...activeSeller,
-      logoUrl: newLogoUrl.trim()
-    });
-    setIsBrandingModalOpen(false);
-    showNotice('Yard Profile Logo & Branding updated successfully! Labels will reflect this logo.');
-  };
-
   const handleOpenAddItem = () => {
-    if (activeSeller) {
-      const currentPlan = getActivePlan(activeSeller.planId);
-      const isUnlimited = currentPlan.maxListings >= 9999;
-      if (!isUnlimited && sellerListings.length >= currentPlan.maxListings) {
-        setLimitWarningModal({
-          currentCount: sellerListings.length,
-          maxAllowed: currentPlan.maxListings,
-          planName: currentPlan.name
-        });
-        return;
-      }
-    }
-
     setEditingItem(null);
     setItemForm({
       title: '',
@@ -466,41 +335,16 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     }
   };
 
-  // Multi-Selection Helpers for Inventory Table
-  const handleToggleSelectItem = (id: string) => {
-    setSelectedItemIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleToggleSelectAll = () => {
-    if (selectedItemIds.length === sellerListings.length) {
-      setSelectedItemIds([]);
-    } else {
-      setSelectedItemIds(sellerListings.map(item => item.id));
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedItemIds([]);
-  };
-
-  // Generate QR tags for selected items or all listings in bulk
-  const handleOpenBatchQrModal = async (customItems?: InventoryItem[]) => {
-    const targetItems = customItems && customItems.length > 0
-      ? customItems
-      : selectedItemIds.length > 0
-      ? sellerListings.filter(item => selectedItemIds.includes(item.id))
-      : sellerListings;
-
-    if (!targetItems.length) {
-      showNotice('Please select at least one inventory item to generate shelf labels.', 'error');
+  // Generate QR tags for all listings in bulk
+  const handleOpenBatchQrModal = async () => {
+    if (!sellerListings.length) {
+      showNotice('No inventory listings found to generate QR tags for.', 'error');
       return;
     }
     setIsGeneratingQr(true);
     try {
       const results = await Promise.all(
-        targetItems.map(async (item) => {
+        sellerListings.map(async (item) => {
           const seller = activeSeller || sellers.find(s => s.id === item.sellerId);
           const waUrl = generateWhatsappInquiryUrl(item, seller);
           const qrDataUrl = await QRCode.toDataURL(waUrl, {
@@ -553,33 +397,21 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
   ) => {
     const sourcePlans = subscriptionPlans && subscriptionPlans.length > 0 ? subscriptionPlans : SUBSCRIPTION_PLANS;
 
-    const getPlanRank = (pId: string) => {
-      if (pId === 'basic' || pId === 'starter') return 1;
-      if (pId === 'pro') return 2;
-      if (pId === 'enterprise' || pId === 'dealer_unlimited') return 3;
-      return 1;
-    };
-
-    const currentRank = getPlanRank(selectedPlanId);
-
     const plans = sourcePlans.map((sp) => {
       const pricing = getPlanEffectivePricing(sp.id);
       const isPro = sp.id === 'pro';
       const isEnterprise = sp.id === 'enterprise';
-      const rank = getPlanRank(sp.id);
 
       return {
         id: sp.id,
         name: sp.name,
-        rank,
-        badge: pricing.promotionalBadge || (isPro ? 'Most Popular' : isEnterprise ? 'Maximum Reach' : 'Starter Yard'),
+        badge: pricing.promotionalBadge || (isPro ? 'Most Popular' : isEnterprise ? 'Maximum Reach' : 'Essential'),
         price: pricing.effectivePrice,
         originalPrice: pricing.originalPrice,
         isDiscountActive: pricing.isDiscountActive,
         discountPercentage: pricing.discountPercentage,
         promoNotice: pricing.promoNotice,
         description: sp.description,
-        maxListingsNum: isEnterprise ? 9999 : isPro ? 50 : 10,
         maxListings: sp.maxListings >= 9999 ? 'Unlimited Listings' : `${sp.maxListings} Active Listings`,
         target: isEnterprise
           ? 'Heavy Equipment Dealers & Fleet Yards'
@@ -587,35 +419,33 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
           ? 'Truck Breakers & Auto Scrap Yards'
           : 'Local Breakers & Spares Shops',
         ranking: isEnterprise
-          ? 'Top Homepage Banner + Verified Master Dealer'
+          ? 'Top Homepage Banner + Verified Dealer Badge'
           : isPro
           ? 'Featured Yard Badge + Priority Search Placement'
-          : 'Standard Directory Search Placement',
+          : 'Standard Search Directory Placement',
         leads: isEnterprise
-          ? 'Direct WhatsApp, Phone & Buyer Email Routing'
+          ? 'WhatsApp, Phone & Direct Email Leads'
           : isPro
-          ? 'Direct WhatsApp & Phone Call Leads'
+          ? 'Direct WhatsApp & Phone Routing'
           : 'Direct WhatsApp & Phone Calls',
         reach: isEnterprise
-          ? 'Nationwide SA Heavy Machinery Network'
+          ? 'Nationwide Premium Exposure'
           : isPro
-          ? 'Province-Wide & City Search Highlighted'
-          : 'City & Local Buyer Search',
+          ? 'Province & City Highlighted'
+          : 'City-Level Buyer Search',
         analytics: isEnterprise
-          ? 'Real-Time Performance Dashboard & Inquiry Logs'
+          ? 'Real-Time Performance Dashboard'
           : isPro
-          ? 'Detailed Buyer Inquiry & View Tracker'
-          : 'Basic Listing View Counter',
+          ? 'Detailed Buyer Inquiry Analytics'
+          : 'Basic View Counter',
         bulkUpload: isEnterprise
-          ? 'Assisted Bulk CSV & Spreadsheet Import'
-          : 'Standard Manual Entry',
+          ? 'Bulk CSV Inventory Upload Assistant'
+          : 'Manual Entry',
         support: isEnterprise
-          ? 'Dedicated Account Manager & Priority Setup'
+          ? 'Dedicated Account Manager'
           : isPro
-          ? 'Priority WhatsApp & Email Support'
-          : 'Standard Community Email Support',
-        qrTags: 'Included: Batch Shelf & Bin QR Stickers',
-        autoReply: 'Included: Out-of-Office WhatsApp Auto-Reply',
+          ? 'Priority Email & WhatsApp Support'
+          : 'Community Email Support',
         popular: isPro
       };
     });
@@ -625,37 +455,6 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
       if (selectedPlanId === 'starter' && pId === 'basic') return true;
       if (selectedPlanId === 'dealer_unlimited' && pId === 'enterprise') return true;
       return false;
-    };
-
-    const handlePlanButtonClick = (p: typeof plans[0]) => {
-      if (isCurrentPlan(p.id)) return;
-
-      if (activeSeller) {
-        // Open Upgrade Confirmation Dialog
-        const isUpgrade = p.rank > currentRank;
-        setUpgradeTargetPlan({
-          id: p.id as SubscriptionPlanId,
-          name: p.name,
-          price: p.price,
-          originalPrice: p.originalPrice,
-          discountPercentage: p.discountPercentage,
-          isDiscountActive: p.isDiscountActive,
-          maxListingsText: p.maxListings,
-          maxListingsNum: p.maxListingsNum,
-          isUpgrade,
-          description: p.description,
-          features: [
-            p.maxListings,
-            p.ranking,
-            p.leads,
-            p.reach,
-            p.support,
-            p.bulkUpload !== 'Standard Manual Entry' ? p.bulkUpload : 'Batch QR Shelf & Bin Sticker Generator'
-          ]
-        });
-      } else {
-        onSelectPlan(p.id as SubscriptionPlanId);
-      }
     };
 
     return (
@@ -685,61 +484,16 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 )}
               </div>
             </div>
-            {((promotionalCampaign.discountPercentage || (promotionalCampaign as any).globalDiscountPercentage || 0) > 0) && (
-              <div className="px-3.5 py-1.5 bg-orange-500 text-slate-950 font-black text-xs rounded-xl shadow-md shrink-0 uppercase tracking-wider self-start sm:self-auto">
-                {promotionalCampaign.discountPercentage || (promotionalCampaign as any).globalDiscountPercentage}% OFF Applied
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Active Seller Tier Status Summary (if logged in) */}
-        {activeSeller && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black">
-                <Zap className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Current Active Subscription:</span>
-                  <span className="text-xs font-black text-amber-400 uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    {getActivePlan(activeSeller.planId).name} Plan
-                  </span>
-                  <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/20">
-                    Active Status
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Yard: <strong>{activeSeller.companyName}</strong> • Inventory Usage: <strong>{sellerListings.length}</strong> listings active
-                </p>
-              </div>
-            </div>
-
-            {selectedPlanId !== 'enterprise' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const target = plans.find(p => p.id === 'enterprise') || plans[2];
-                  handlePlanButtonClick(target);
-                }}
-                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span>Upgrade to Enterprise for Unlimited Listings</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            )}
           </div>
         )}
 
         <div className="text-center space-y-1.5 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-bold uppercase tracking-wider">
-            <Zap className="w-3.5 h-3.5" /> Feature Matrix & Limits Comparison
+            <Zap className="w-3.5 h-3.5" /> Tiered Advertising Subscriptions
           </div>
-          <h3 className="text-xl font-black text-white">Compare Monthly Seller Subscription Tiers</h3>
+          <h3 className="text-xl font-black text-white">Compare Monthly Seller Subscription Plans</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Upgrade your plan anytime to expand listing capacity, boost directory search placement, and unlock direct WhatsApp buyer inquiries across South Africa.
+            Select the advertising plan tailored for your yard's inventory size to start receiving direct WhatsApp & phone leads across South Africa.
           </p>
         </div>
 
@@ -749,11 +503,10 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             <thead>
               <tr className="border-b border-slate-800 bg-slate-900/90">
                 <th className="p-4 w-1/4 font-extrabold text-slate-400 uppercase text-[11px] tracking-wider">
-                  Features & Tier Limits
+                  Tier Comparison
                 </th>
                 {plans.map((p) => {
                   const selected = isCurrentPlan(p.id);
-                  const isUpgrade = p.rank > currentRank;
                   const savings = Math.max(0, p.originalPrice - p.price);
                   return (
                     <th
@@ -810,12 +563,10 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => handlePlanButtonClick(p)}
-                          className={`w-full py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          onClick={() => onSelectPlan(p.id)}
+                          className={`w-full py-2 px-3 rounded-xl font-extrabold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                             selected
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-default'
-                              : isUpgrade
-                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95'
+                              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                               : p.popular
                               ? 'bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/30'
                               : 'bg-slate-800 hover:bg-slate-700 text-white'
@@ -823,19 +574,13 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                         >
                           {selected ? (
                             <>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Current Active Tier</span>
-                            </>
-                          ) : isUpgrade ? (
-                            <>
-                              <Zap className="w-3.5 h-3.5" />
-                              <span>Upgrade to {p.name}</span>
-                              <ArrowRight className="w-3 h-3" />
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Selected Plan</span>
                             </>
                           ) : (
                             <>
-                              <span>Switch to {p.name}</span>
-                              <ArrowRight className="w-3 h-3" />
+                              <span>Choose {p.name}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
                             </>
                           )}
                         </button>
@@ -846,29 +591,19 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70 text-xs">
-              
-              {/* SECTION: LISTINGS & INVENTORY CAPACITY */}
-              <tr className="bg-slate-900/60 font-black text-amber-400 tracking-wider uppercase text-[10px]">
-                <td colSpan={4} className="p-2.5 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Inventory Limits & Capacity</span>
-                  </div>
-                </td>
-              </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
                   Active Listings Limit
                 </td>
                 {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 font-black text-sm ${p.id === 'enterprise' ? 'text-emerald-400' : 'text-amber-400'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
+                  <td key={p.id} className={`p-3.5 font-black text-amber-400 ${p.popular ? 'bg-amber-500/5' : ''}`}>
                     {p.maxListings}
                   </td>
                 ))}
               </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Target Equipment Yard
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Target Business Type
                 </td>
                 {plans.map((p) => (
                   <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
@@ -877,41 +612,28 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 ))}
               </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Printable Shelf & Bin QR Labels
-                </td>
-                {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
-                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>{p.qrTags}</span>
-                    </div>
-                  </td>
-                ))}
-              </tr>
-
-              {/* SECTION: BUYER VISIBILITY & SEARCH RANKING */}
-              <tr className="bg-slate-900/60 font-black text-amber-400 tracking-wider uppercase text-[10px]">
-                <td colSpan={4} className="p-2.5 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>Search Ranking & Visibility</span>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
                   Directory Search Ranking
                 </td>
                 {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 font-bold ${p.id === 'basic' ? 'text-slate-300' : 'text-amber-300'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
+                  <td key={p.id} className={`p-3.5 font-medium ${p.id === 'basic' ? 'text-slate-300' : 'text-amber-300'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
                     {p.ranking}
                   </td>
                 ))}
               </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Geographic Exposure Reach
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Buyer Lead Routing
+                </td>
+                {plans.map((p) => (
+                  <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
+                    {p.leads}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Geographic Reach
                 </td>
                 {plans.map((p) => (
                   <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
@@ -920,51 +642,8 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 ))}
               </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Direct Buyer Leads Routing
-                </td>
-                {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
-                    {p.leads}
-                  </td>
-                ))}
-              </tr>
-
-              {/* SECTION: YARD TOOLS & AUTOMATION */}
-              <tr className="bg-slate-900/60 font-black text-amber-400 tracking-wider uppercase text-[10px]">
-                <td colSpan={4} className="p-2.5 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>Seller Tools & Support</span>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  WhatsApp Out-of-Office Auto-Reply
-                </td>
-                {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
-                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>{p.autoReply}</span>
-                    </div>
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Inventory Upload Assistant
-                </td>
-                {plans.map((p) => (
-                  <td key={p.id} className={`p-3.5 ${p.id === 'enterprise' ? 'font-bold text-emerald-400' : 'text-slate-400'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
-                    {p.bulkUpload}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Yard Performance Analytics
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Analytics & View Stats
                 </td>
                 {plans.map((p) => (
                   <td key={p.id} className={`p-3.5 text-slate-200 ${p.popular ? 'bg-amber-500/5' : ''}`}>
@@ -973,8 +652,18 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 ))}
               </tr>
               <tr>
-                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/30 border-r border-slate-800/60">
-                  Account Care & Support SLA
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Bulk CSV Upload Tool
+                </td>
+                {plans.map((p) => (
+                  <td key={p.id} className={`p-3.5 ${p.id === 'enterprise' ? 'font-bold text-emerald-400' : 'text-slate-400'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
+                    {p.bulkUpload}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="p-3.5 font-bold text-slate-300 bg-slate-900/40 border-r border-slate-800/60">
+                  Support Level
                 </td>
                 {plans.map((p) => (
                   <td key={p.id} className={`p-3.5 ${p.id === 'enterprise' ? 'font-bold text-indigo-300' : 'text-slate-200'} ${p.popular ? 'bg-amber-500/5' : ''}`}>
@@ -983,35 +672,6 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 ))}
               </tr>
             </tbody>
-            {/* Table Footer with Action Buttons */}
-            <tfoot>
-              <tr className="bg-slate-900/90 border-t border-slate-800">
-                <td className="p-4 font-bold text-slate-400">
-                  Select Plan to Upgrade:
-                </td>
-                {plans.map((p) => {
-                  const selected = isCurrentPlan(p.id);
-                  const isUpgrade = p.rank > currentRank;
-                  return (
-                    <td key={p.id} className="p-4">
-                      <button
-                        type="button"
-                        onClick={() => handlePlanButtonClick(p)}
-                        className={`w-full py-2.5 px-3 rounded-xl font-extrabold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                          selected
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-default'
-                            : isUpgrade
-                            ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95'
-                            : 'bg-slate-800 hover:bg-slate-700 text-white'
-                        }`}
-                      >
-                        {selected ? 'Active Tier' : isUpgrade ? `Upgrade to ${p.name}` : `Select ${p.name}`}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tfoot>
           </table>
         </div>
 
@@ -1019,12 +679,11 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
         <div className="grid grid-cols-1 gap-4 md:hidden">
           {plans.map((p) => {
             const selected = isCurrentPlan(p.id);
-            const isUpgrade = p.rank > currentRank;
             const savings = Math.max(0, p.originalPrice - p.price);
             return (
               <div
                 key={p.id}
-                className={`p-5 rounded-2xl border transition-all space-y-4 ${
+                className={`p-5 rounded-2xl border transition-all space-y-3 ${
                   selected
                     ? 'bg-amber-500/10 border-amber-500'
                     : p.popular
@@ -1036,15 +695,11 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-extrabold text-base text-white">{p.name}</h4>
-                      {p.isDiscountActive ? (
+                      {p.isDiscountActive && (
                         <span className="text-[9px] bg-orange-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase">
                           {p.badge}
                         </span>
-                      ) : p.popular ? (
-                        <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase">
-                          Most Popular
-                        </span>
-                      ) : null}
+                      )}
                     </div>
                     <span className="text-xs text-amber-400 font-bold">{p.maxListings}</span>
                   </div>
@@ -1053,7 +708,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                       <div>
                         <div className="text-xs text-slate-500 line-through font-bold">R{p.originalPrice}</div>
                         <div className="text-lg font-black text-amber-400">R{p.price}</div>
-                        <span className="text-[9px] text-emerald-400 font-bold">Save R{savings}/mo ({p.discountPercentage}% OFF)</span>
+                        <span className="text-[9px] text-emerald-400 font-bold">Save R{savings}/mo</span>
                       </div>
                     ) : (
                       <div>
@@ -1066,57 +721,35 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
                 <p className="text-xs text-slate-400 leading-normal">{p.description}</p>
 
-                <div className="space-y-2 pt-2 border-t border-slate-800 text-xs">
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                <ul className="space-y-1.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span><strong>Listings:</strong> {p.maxListings}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span><strong>Ranking:</strong> {p.ranking}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span><strong>Leads:</strong> {p.leads}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                    <span><strong>Reach:</strong> {p.reach}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span><strong>Support:</strong> {p.support}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                    <span><strong>QR Labels:</strong> Batch shelf & bin QR tags included</span>
-                  </div>
-                </div>
+                  </li>
+                </ul>
 
                 <button
                   type="button"
-                  onClick={() => handlePlanButtonClick(p)}
+                  onClick={() => onSelectPlan(p.id)}
                   className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     selected
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : isUpgrade
-                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-md'
+                      ? 'bg-amber-500 text-slate-950'
                       : 'bg-slate-800 hover:bg-slate-700 text-white'
                   }`}
                 >
-                  {selected ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Current Active Tier</span>
-                    </>
-                  ) : isUpgrade ? (
-                    <>
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Upgrade to {p.name}</span>
-                    </>
-                  ) : (
-                    `Select ${p.name}`
-                  )}
+                  {selected ? 'Selected Plan' : `Select ${p.name}`}
                 </button>
               </div>
             );
@@ -1322,70 +955,25 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 <>
                   {/* Seller Header & Action */}
                   <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      {/* Yard Logo / Branding Emblem */}
-                      <div className="shrink-0 relative group">
-                        {activeSeller.logoUrl ? (
-                          <div className="w-14 h-14 rounded-2xl bg-white p-1 border-2 border-amber-500/40 shadow-md flex items-center justify-center overflow-hidden">
-                            <img
-                              src={activeSeller.logoUrl}
-                              alt={activeSeller.companyName}
-                              className="max-h-full max-w-full object-contain"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-black text-white">{activeSeller.companyName}</h3>
+                        {activeSeller.subscriptionStatus === 'active' ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Active Subscription
+                          </span>
                         ) : (
-                          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 flex flex-col items-center justify-center text-amber-400">
-                            <Building2 className="w-6 h-6" />
-                            <span className="text-[8px] font-bold mt-0.5">NO LOGO</span>
-                          </div>
+                          <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> {activeSeller.subscriptionStatus.toUpperCase()}
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setBrandingLogoInput(activeSeller.logoUrl || '');
-                            setIsBrandingModalOpen(true);
-                          }}
-                          className="absolute -bottom-1 -right-1 bg-amber-500 hover:bg-amber-400 text-slate-950 p-1 rounded-full shadow-md cursor-pointer transition-all hover:scale-110"
-                          title="Change Yard Logo"
-                        >
-                          <ImageIcon className="w-3 h-3" />
-                        </button>
                       </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-black text-white">{activeSeller.companyName}</h3>
-                          {activeSeller.subscriptionStatus === 'active' ? (
-                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Active Subscription
-                            </span>
-                          ) : (
-                            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> {activeSeller.subscriptionStatus.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-400">
-                          {activeSeller.city}, {activeSeller.province} | Contact: {activeSeller.contactName} ({activeSeller.phone})
-                        </p>
-                      </div>
+                      <p className="text-xs text-slate-400">
+                        {activeSeller.city}, {activeSeller.province} | Contact: {activeSeller.contactName} ({activeSeller.phone})
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBrandingLogoInput(activeSeller.logoUrl || '');
-                          setIsBrandingModalOpen(true);
-                        }}
-                        className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-amber-300 border border-slate-700 hover:border-amber-500/40 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                        title="Configure Yard Logo for Shelf Labels & Invoices"
-                      >
-                        <Building2 className="w-4 h-4 text-amber-400" />
-                        <span>Yard Branding & Logo</span>
-                      </button>
-
                       <button
                         onClick={handleOpenBatchQrModal}
                         disabled={sellerListings.length === 0}
@@ -1405,232 +993,71 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Plan Capacity & Tier Usage Tracker Bar */}
-                  {(() => {
-                    const currentPlan = getActivePlan(activeSeller.planId);
-                    const isUnlimited = currentPlan.maxListings >= 9999;
-                    const maxAllowed = currentPlan.maxListings;
-                    const count = sellerListings.length;
-                    const percent = isUnlimited ? Math.min(100, (count / 100) * 100) : Math.min(100, Math.round((count / maxAllowed) * 100));
-                    const isNearLimit = !isUnlimited && count >= maxAllowed;
-                    const isApproaching = !isUnlimited && count >= maxAllowed * 0.8 && count < maxAllowed;
-
-                    return (
-                      <div className={`p-4 rounded-2xl border transition-all ${
-                        isNearLimit
-                          ? 'bg-rose-950/20 border-rose-500/40'
-                          : isApproaching
-                          ? 'bg-amber-500/10 border-amber-500/40'
-                          : 'bg-slate-950 border-slate-800'
-                      }`}>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-bold text-slate-300">Plan Inventory Capacity:</span>
-                              <span className="text-xs font-black text-amber-400 uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                {currentPlan.name} Plan ({isUnlimited ? 'Unlimited' : `${count} / ${maxAllowed} Used`})
-                              </span>
-                              {isNearLimit && (
-                                <span className="text-[10px] bg-rose-500/20 text-rose-300 font-black px-2 py-0.5 rounded border border-rose-500/30 flex items-center gap-1">
-                                  <AlertTriangle className="w-3 h-3 text-rose-400" /> Plan Limit Reached
-                                </span>
-                              )}
-                              {isApproaching && (
-                                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded border border-amber-500/30">
-                                  Approaching Limit
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Visual Progress Bar */}
-                            {!isUnlimited && (
-                              <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800 mt-2">
-                                <div
-                                  className={`h-full transition-all duration-500 rounded-full ${
-                                    isNearLimit ? 'bg-rose-500' : isApproaching ? 'bg-amber-400' : 'bg-emerald-400'
-                                  }`}
-                                  style={{ width: `${percent}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab('subscription')}
-                            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                          >
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            <span>Compare Plans & Upgrade</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
                   {/* Listings Grid */}
                   <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                      <div>
-                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                          <span>Your Current Listings ({sellerListings.length})</span>
-                          {selectedItemIds.length > 0 && (
-                            <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                              {selectedItemIds.length} Selected
-                            </span>
-                          )}
-                        </h4>
-                        {sellerListings.length > 0 && (
-                          <span className="text-[11px] text-slate-400">
-                            Select multiple listings to generate a single continuous thermal print roll or label sheet.
-                          </span>
-                        )}
-                      </div>
-
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                        Your Current Listings ({sellerListings.length})
+                      </h4>
                       {sellerListings.length > 0 && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={handleToggleSelectAll}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                            title="Select or deselect all items for bulk printing"
-                          >
-                            {selectedItemIds.length === sellerListings.length ? (
-                              <>
-                                <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Deselect All</span>
-                              </>
-                            ) : (
-                              <>
-                                <Square className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Select All ({sellerListings.length})</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenBatchQrModal()}
-                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
-                            title="Bulk Print shelf labels for selected items"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>
-                              {selectedItemIds.length > 0
-                                ? `Bulk Print Labels (${selectedItemIds.length})`
-                                : `Bulk Print All (${sellerListings.length})`}
-                            </span>
-                          </button>
-                        </div>
+                        <span className="text-[11px] text-slate-400">
+                          Click <strong className="text-amber-400">QR Tag</strong> to print stickers for parts & shelves
+                        </span>
                       )}
                     </div>
 
-                    {/* Bulk Selection Sticky Floating Notification / Bar when items are selected */}
-                    {selectedItemIds.length > 0 && (
-                      <div className="p-3 bg-amber-500/10 border border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm">
-                        <div className="flex items-center gap-2 text-amber-300 font-bold">
-                          <ListChecks className="w-4 h-4 text-amber-400" />
-                          <span>{selectedItemIds.length} of {sellerListings.length} items selected for Bulk Thermal Shelf Label printing</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleClearSelection}
-                            className="text-slate-400 hover:text-slate-200 text-[11px] underline cursor-pointer"
-                          >
-                            Clear
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenBatchQrModal()}
-                            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>Open Bulk Print ({selectedItemIds.length})</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                     {sellerListings.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {sellerListings.map((item) => {
-                          const isSelected = selectedItemIds.includes(item.id);
-                          return (
-                            <div
-                              key={item.id}
-                              className={`bg-slate-950 p-4 rounded-2xl border transition-all flex flex-col sm:flex-row gap-4 sm:items-center justify-between ${
-                                isSelected
-                                  ? 'border-amber-500/80 bg-amber-500/[0.03] shadow-md ring-1 ring-amber-500/40'
-                                  : 'border-slate-800 hover:border-slate-750'
-                              }`}
-                            >
-                              <div className="flex gap-3 items-center min-w-0">
-                                {/* Item Checkbox for Bulk Selection */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleSelectItem(item.id)}
-                                  className="shrink-0 text-slate-500 hover:text-amber-400 p-1 cursor-pointer transition-colors"
-                                  title={isSelected ? "Deselect item" : "Select item for bulk printing"}
-                                >
-                                  {isSelected ? (
-                                    <CheckSquare className="w-5 h-5 text-amber-400" />
-                                  ) : (
-                                    <Square className="w-5 h-5 text-slate-600 hover:text-slate-400" />
-                                  )}
-                                </button>
-
-                                <img
-                                  src={item.images[0]}
-                                  alt=""
-                                  className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-800"
-                                />
-                                <div className="min-w-0">
-                                  <h5 className="font-bold text-xs text-white truncate">{item.title}</h5>
-                                  <div className="text-[11px] text-amber-400 font-bold mt-0.5">
-                                    {formatCurrency(item.priceZar)}
-                                  </div>
-                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-1">
-                                    <span className="uppercase">{item.condition}</span>
-                                    {item.partNumber && (
-                                      <>
-                                        <span>•</span>
-                                        <span className="font-mono text-slate-400">OEM: {item.partNumber}</span>
-                                      </>
-                                    )}
-                                    <span>•</span>
-                                    <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" /> {item.views}</span>
-                                  </div>
+                        {sellerListings.map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex gap-4 items-center justify-between hover:border-slate-750 transition-colors"
+                          >
+                            <div className="flex gap-3 items-center min-w-0">
+                              <img
+                                src={item.images[0]}
+                                alt=""
+                                className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-800"
+                              />
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-xs text-white truncate">{item.title}</h5>
+                                <div className="text-[11px] text-amber-400 font-bold mt-0.5">
+                                  {formatCurrency(item.priceZar)}
+                                </div>
+                                <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-1">
+                                  <span className="uppercase">{item.condition}</span>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" /> {item.views}</span>
                                 </div>
                               </div>
-
-                              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                                <button
-                                  onClick={() => handleOpenQrModal(item)}
-                                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-                                  title="Open Print Shelf Label UI (Small Thermal & Paper Labels with WhatsApp QR)"
-                                >
-                                  <Printer className="w-3.5 h-3.5" />
-                                  <span>Print Shelf Label</span>
-                                </button>
-                                <button
-                                  onClick={() => handleOpenEditItem(item)}
-                                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors cursor-pointer"
-                                  title="Edit Listing"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => setItemPendingDelete(item)}
-                                  className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Listing"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
                             </div>
-                          );
-                        })}
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => handleOpenQrModal(item)}
+                                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                                title="Generate WhatsApp QR Code & Print Sticker Label"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">QR Tag</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditItem(item)}
+                                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Listing"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setItemPendingDelete(item)}
+                                className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Listing"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="bg-slate-950/50 p-8 rounded-2xl border border-dashed border-slate-800 text-center space-y-3">
@@ -2214,82 +1641,12 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
                     />
                   </div>
-
-                  {/* Yard Profile Logo & Branding */}
-                  <div className="space-y-2 md:col-span-2 p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-300 font-bold flex items-center gap-1.5 text-xs">
-                        <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Yard Profile Logo URL (For Printable Shelf Labels & Badges)</span>
-                      </label>
-                      <span className="text-[10px] text-slate-500 font-normal">Optional</span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="url"
-                        value={regForm.logoUrl || ''}
-                        onChange={(e) => setRegForm({ ...regForm, logoUrl: e.target.value })}
-                        placeholder="https://... (direct image link to your company logo)"
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
-                      />
-                      {regForm.logoUrl && (
-                        <div className="w-10 h-10 rounded-xl bg-white p-1 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                          <img
-                            src={regForm.logoUrl}
-                            alt="Logo preview"
-                            className="max-h-full max-w-full object-contain"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick sample logo presets */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      <span className="text-[10px] text-slate-500 font-bold">Presets:</span>
-                      {[
-                        { label: '🚜 Heavy Equipment', url: 'https://images.unsplash.com/photo-1579273166152-d725a4e2b755?auto=format&fit=crop&w=300&q=80' },
-                        { label: '🚚 Truck & Diesel Spares', url: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=300&q=80' },
-                        { label: '🚗 Auto Scrap & Dismantler', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80' }
-                      ].map((preset, pIdx) => (
-                        <button
-                          key={pIdx}
-                          type="button"
-                          onClick={() => setRegForm({ ...regForm, logoUrl: preset.url })}
-                          className="text-[10px] bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-400 px-2 py-0.5 rounded-lg transition-all cursor-pointer"
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                      {regForm.logoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setRegForm({ ...regForm, logoUrl: '' })}
-                          className="text-[10px] text-rose-400 hover:text-rose-300 ml-auto cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Choose Subscription Plan Tiered Table */}
                 <div className="space-y-3 pt-2">
                   <label className="text-xs font-bold text-amber-400 block border-b border-slate-800 pb-2">
-                    Selected Subscription Plan:{' '}
-                    <span className="text-white uppercase font-black">
-                      {getActivePlan(regForm.planId).name}{' '}
-                      {(() => {
-                        const pricing = getPlanEffectivePricing(regForm.planId);
-                        if (pricing.isDiscountActive && pricing.effectivePrice < pricing.originalPrice) {
-                          return `(R${pricing.effectivePrice}/mo • ${pricing.discountPercentage}% OFF Promo)`;
-                        }
-                        return `(R${pricing.effectivePrice}/mo)`;
-                      })()}
-                    </span>
+                    Selected Subscription Plan: <span className="text-white uppercase font-black">{getActivePlan(regForm.planId).name} (R{getActivePlan(regForm.planId).priceZar}/mo)</span>
                   </label>
 
                   {renderPlansComparisonTable(regForm.planId, (pId) => setRegForm({ ...regForm, planId: pId }))}
@@ -2455,7 +1812,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
         </div>
       )}
 
-      {/* DEDICATED 'PRINT SHELF LABEL' & THERMAL QR MODAL */}
+      {/* SINGLE ITEM WHATSAPP QR CODE & SHELF TAG MODAL */}
       {qrModalItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[92vh] max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl text-white my-auto flex flex-col">
@@ -2464,19 +1821,14 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             <div className="p-5 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                  <Printer className="w-5 h-5" />
+                  <QrCode className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-black text-white truncate">
-                      Print Shelf & Inventory Label
-                    </h3>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded border border-amber-500/30 uppercase shrink-0">
-                      Thermal & Paper
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                    Label for <strong className="text-amber-400">{qrModalItem.title}</strong> • {formatCurrency(qrModalItem.priceZar)}
+                  <h3 className="text-base font-black text-white truncate">
+                    WhatsApp Inquiry QR Code & Label
+                  </h3>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    Direct WhatsApp link tag for <strong className="text-amber-400">{qrModalItem.title}</strong>
                   </p>
                 </div>
               </div>
@@ -2494,357 +1846,91 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             {/* Modal Body */}
             <div className="p-5 space-y-6 flex-1">
               
-              {/* Format Selector Tabs */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Tag className="w-3.5 h-3.5 text-amber-400" />
-                    Select Label Format & Printer Type:
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    Optimized for POS & paper printers
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setQrTagFormat('thermal_58')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      qrTagFormat === 'thermal_58'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">58mm Thermal</span>
-                    <span className="text-[9px] opacity-80 leading-none">2" Roll / POS</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setQrTagFormat('thermal_80')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      qrTagFormat === 'thermal_80'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">80mm Thermal</span>
-                    <span className="text-[9px] opacity-80 leading-none">3" Roll / Zebra</span>
-                  </button>
-
+              {/* Format Switcher */}
+              <div className="flex items-center justify-between gap-2 flex-wrap bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 px-2 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-amber-400" />
+                  Tag Format:
+                </span>
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setQrTagFormat('shelf_tag')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       qrTagFormat === 'shelf_tag'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
-                    <span className="text-xs">Shelf Lip Tag</span>
-                    <span className="text-[9px] opacity-80 leading-none">80x50mm Paper</span>
+                    Compact Shelf Tag
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setQrTagFormat('bin_sticker')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       qrTagFormat === 'bin_sticker'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
-                    <span className="text-xs">Bin Sticker</span>
-                    <span className="text-[9px] opacity-80 leading-none">Landscape</span>
+                    Bin / Rack Sticker
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setQrTagFormat('counter_card')}
-                    className={`col-span-2 sm:col-span-1 p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       qrTagFormat === 'counter_card'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
-                    <span className="text-xs">Counter Card</span>
-                    <span className="text-[9px] opacity-80 leading-none">Table Flyer</span>
+                    Showroom Counter Flyer
                   </button>
                 </div>
               </div>
 
-              {/* Label Content & Thermal Settings Toolbar */}
-              <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                    Label Content & Thermal Print Toggles:
-                  </span>
-                  <span className="text-[10px] text-amber-400/90 font-medium">
-                    Customize fields included on sticker
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showPrice}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showPrice: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">Item Price</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showPartNumber}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showPartNumber: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">Part # / OEM</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showSellerInfo}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showSellerInfo: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">Yard & WA</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-amber-500/30 hover:border-amber-500/60 cursor-pointer text-slate-300 bg-amber-500/5">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showYardLogo}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showYardLogo: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
-                      <Building2 className="w-3 h-3 text-amber-400 shrink-0" />
-                      Yard Logo
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.highContrastThermal}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, highContrastThermal: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold text-amber-400">Pure B&W</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* LIVE PRINTABLE SHELF LABEL PREVIEW */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden relative">
-                <div className="absolute top-2.5 left-3 flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <Scissors className="w-3 h-3 text-slate-500" />
-                  Live Label Print Preview
-                </div>
-
+              {/* LIVE PRINTABLE TAG PREVIEW */}
+              <div className="flex justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
                 {isGeneratingQr ? (
                   <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
                     <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs font-bold">Generating Crisp WhatsApp QR Code...</span>
+                    <span className="text-xs font-bold">Generating WhatsApp QR Code...</span>
                   </div>
                 ) : (
                   <div
                     id="printable-single-qr-tag"
-                    className={`bg-white text-slate-950 rounded-xl shadow-2xl transition-all border-2 border-slate-950 print-qr-tag my-2 ${
-                      qrTagFormat === 'thermal_58'
-                        ? 'p-3 w-64 flex flex-col items-center text-center space-y-2 print-thermal-58'
-                        : qrTagFormat === 'thermal_80'
-                        ? 'p-4 w-80 flex flex-col space-y-2.5 print-thermal-80'
-                        : qrTagFormat === 'shelf_tag'
+                    className={`bg-white text-slate-950 rounded-2xl shadow-xl transition-all border-2 border-slate-900 print-qr-tag ${
+                      qrTagFormat === 'shelf_tag'
                         ? 'p-4 w-72 flex flex-col items-center text-center space-y-2'
                         : qrTagFormat === 'bin_sticker'
-                        ? 'p-4 w-96 flex flex-row items-center gap-3'
+                        ? 'p-5 w-96 flex flex-row items-center gap-4'
                         : 'p-6 w-full max-w-lg flex flex-col space-y-3'
                     }`}
                   >
-                    {/* 1. 58mm DIRECT THERMAL ROLL LABEL (2" WIDTH) */}
-                    {qrTagFormat === 'thermal_58' && (
-                      <>
-                        <div className="w-full border-b border-dashed border-slate-950 pb-1.5 flex flex-col items-center text-center text-[9px] font-black uppercase text-slate-900 gap-1">
-                          <div className="w-full flex items-center justify-between">
-                            <span>PART-SMART ZA</span>
-                            {labelOptions.showSellerInfo && (
-                              <span className="truncate max-w-[120px] font-bold text-slate-800">
-                                {activeSeller?.companyName || qrModalItem.sellerName}
-                              </span>
-                            )}
-                          </div>
-                          {labelOptions.showYardLogo && (
-                            <div className="pt-0.5">
-                              {renderYardLogo(qrModalItem.sellerId, true, "max-h-7 max-w-[120px]")}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Item Title */}
-                        <div className="w-full text-center">
-                          <h4 className="font-black text-xs text-slate-950 leading-snug line-clamp-2 uppercase tracking-tight">
-                            {qrModalItem.title}
-                          </h4>
-                          <div className="text-[9px] font-bold text-slate-800 mt-0.5">
-                            {qrModalItem.make} {qrModalItem.model} {qrModalItem.year ? `(${qrModalItem.year})` : ''}
-                          </div>
-                        </div>
-
-                        {/* Part Number & Specs */}
-                        {labelOptions.showPartNumber && qrModalItem.partNumber && (
-                          <div className="w-full bg-slate-100 py-0.5 px-1 rounded border border-slate-300 font-mono text-[9px] font-bold text-slate-950">
-                            OEM: {qrModalItem.partNumber}
-                          </div>
-                        )}
-
-                        {/* Price */}
-                        {labelOptions.showPrice && (
-                          <div className="w-full py-0.5 border-y border-slate-950 my-0.5">
-                            <span className="text-base font-black text-slate-950">
-                              {formatCurrency(qrModalItem.priceZar)}
-                            </span>
-                            <span className="text-[8px] font-bold uppercase ml-1.5 px-1 py-0.2 bg-slate-200 text-slate-900 rounded">
-                              {qrModalItem.condition}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* High-Contrast QR Code */}
-                        <div className="p-1 bg-white border border-slate-950 rounded-lg">
-                          {qrCodeDataUrl && (
-                            <img
-                              src={qrCodeDataUrl}
-                              alt="WhatsApp QR Code"
-                              className="w-32 h-32 object-contain mx-auto"
-                            />
-                          )}
-                        </div>
-
-                        {/* Thermal Footer */}
-                        <div className="w-full text-center space-y-0.5 pt-0.5 border-t border-dashed border-slate-950">
-                          <div className="text-[9px] font-black uppercase text-slate-950">
-                            SCAN TO WHATSAPP DESK
-                          </div>
-                          {labelOptions.showSellerInfo && (
-                            <div className="text-[8px] font-mono font-bold text-slate-800">
-                              WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp || qrModalItem.sellerPhone}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-
-                    {/* 2. 80mm DIRECT THERMAL ROLL LABEL (3" WIDTH) */}
-                    {qrTagFormat === 'thermal_80' && (
-                      <>
-                        <div className="w-full border-b-2 border-slate-950 pb-1 flex items-center justify-between text-[10px] font-black uppercase">
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-950">PART-SMART.ZA</span>
-                            {labelOptions.showYardLogo && renderYardLogo(qrModalItem.sellerId, true, "max-h-6 max-w-[90px]")}
-                          </div>
-                          {labelOptions.showSellerInfo && (
-                            <span className="truncate max-w-[140px] text-slate-800 font-bold">
-                              {activeSeller?.companyName || qrModalItem.sellerName}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 text-left space-y-1">
-                            <h4 className="font-black text-sm text-slate-950 leading-tight">
-                              {qrModalItem.title}
-                            </h4>
-                            <div className="text-[10px] text-slate-800 font-bold">
-                              {qrModalItem.make} {qrModalItem.model} {qrModalItem.year ? `• ${qrModalItem.year}` : ''}
-                            </div>
-                            
-                            {labelOptions.showPartNumber && qrModalItem.partNumber && (
-                              <div className="text-[9px] font-mono font-bold text-slate-950 bg-slate-100 px-1 py-0.5 rounded border border-slate-300 inline-block">
-                                OEM: {qrModalItem.partNumber}
-                              </div>
-                            )}
-
-                            {labelOptions.showPrice && (
-                              <div className="pt-1">
-                                <div className="text-lg font-black text-slate-950">
-                                  {formatCurrency(qrModalItem.priceZar)}
-                                </div>
-                                <span className="text-[8px] font-bold uppercase bg-slate-200 px-1.5 py-0.5 rounded text-slate-900">
-                                  {qrModalItem.condition}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="shrink-0 flex flex-col items-center">
-                            <div className="p-1 bg-white border-2 border-slate-950 rounded-lg">
-                              {qrCodeDataUrl && (
-                                <img
-                                  src={qrCodeDataUrl}
-                                  alt="WhatsApp QR Code"
-                                  className="w-28 h-28 object-contain"
-                                />
-                              )}
-                            </div>
-                            <span className="text-[8px] font-black uppercase text-slate-950 mt-0.5">
-                              Scan for WA
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="w-full text-center pt-1 border-t border-slate-950 flex items-center justify-between text-[9px] font-bold text-slate-900">
-                          <span>Scan with camera to chat</span>
-                          {labelOptions.showSellerInfo && (
-                            <span className="font-mono">WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp}</span>
-                          )}
-                        </div>
-                      </>
-                    )}
-
-                    {/* 3. STANDARD WAREHOUSE SHELF LIP TAG (PAPER / CARDSTOCK 80x50mm) */}
+                    {/* Compact Shelf Tag */}
                     {qrTagFormat === 'shelf_tag' && (
                       <>
                         <div className="w-full border-b border-slate-200 pb-1.5 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">
-                              Part-Smart ZA
-                            </span>
-                            {labelOptions.showYardLogo && renderYardLogo(qrModalItem.sellerId, false, "max-h-6 max-w-[80px] p-0.5 rounded bg-white border border-slate-200")}
-                          </div>
-                          {labelOptions.showSellerInfo && (
-                            <span className="text-[9px] font-bold text-slate-500 truncate max-w-[110px]">
-                              {activeSeller?.companyName || qrModalItem.sellerName}
-                            </span>
-                          )}
+                          <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">
+                            Part-Smart ZA
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-500 truncate max-w-[120px]">
+                            {activeSeller?.companyName || qrModalItem.sellerName}
+                          </span>
                         </div>
 
                         <div className="w-full text-left">
                           <h4 className="font-black text-xs text-slate-900 leading-tight line-clamp-2">
                             {qrModalItem.title}
                           </h4>
-                          {labelOptions.showPartNumber && qrModalItem.partNumber && (
-                            <div className="text-[9px] font-mono text-slate-500 mt-0.5">
-                              OEM / Part #: <strong className="text-slate-800">{qrModalItem.partNumber}</strong>
-                            </div>
-                          )}
-                          {labelOptions.showPrice && (
-                            <div className="flex items-center justify-between mt-1">
-                              <span className="text-sm font-black text-emerald-700">
-                                {formatCurrency(qrModalItem.priceZar)}
-                              </span>
-                              <span className="text-[9px] font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                {qrModalItem.condition}
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-sm font-black text-emerald-700">
+                              {formatCurrency(qrModalItem.priceZar)}
+                            </span>
+                            <span className="text-[9px] font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              {qrModalItem.condition}
+                            </span>
+                          </div>
                         </div>
 
                         {/* High-Resolution QR Code */}
@@ -2853,7 +1939,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                             <img
                               src={qrCodeDataUrl}
                               alt="WhatsApp QR Code"
-                              className="w-36 h-36 object-contain mx-auto"
+                              className="w-40 h-40 object-contain mx-auto"
                             />
                           )}
                         </div>
@@ -2864,74 +1950,61 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                             Scan with Phone Camera
                           </span>
                           <p className="text-[8px] text-slate-500">
-                            Opens direct WhatsApp chat with parts desk
+                            Opens direct WhatsApp chat with seller
                           </p>
-                          {labelOptions.showSellerInfo && (
-                            <p className="text-[9px] font-mono text-slate-700 font-bold">
-                              WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp || qrModalItem.sellerPhone}
-                            </p>
-                          )}
+                          <p className="text-[9px] font-mono text-slate-700 font-bold">
+                            WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp || qrModalItem.sellerPhone}
+                          </p>
                         </div>
                       </>
                     )}
 
-                    {/* 4. BIN & PART ADHESIVE STICKER (LANDSCAPE) */}
+                    {/* Bin / Rack Sticker */}
                     {qrTagFormat === 'bin_sticker' && (
                       <>
-                        <div className="shrink-0 bg-white p-1.5 rounded-xl border border-slate-300 shadow-xs flex flex-col items-center">
+                        <div className="shrink-0 bg-white p-1.5 rounded-xl border border-slate-300 shadow-xs">
                           {qrCodeDataUrl && (
                             <img
                               src={qrCodeDataUrl}
                               alt="WhatsApp QR Code"
-                              className="w-28 h-28 object-contain"
+                              className="w-32 h-32 object-contain"
                             />
                           )}
-                          <div className="text-[8px] text-center font-black uppercase text-emerald-700 mt-0.5">
-                            Scan for WA
+                          <div className="text-[8px] text-center font-black uppercase text-emerald-700 mt-1">
+                            Scan for WhatsApp
                           </div>
                         </div>
 
-                        <div className="min-w-0 flex-1 space-y-1 text-left">
-                          <div className="flex items-center justify-between gap-2">
-                            {labelOptions.showSellerInfo && (
-                              <div className="text-[9px] font-black text-amber-600 uppercase tracking-wider truncate">
-                                {activeSeller?.companyName || qrModalItem.sellerName}
-                              </div>
-                            )}
-                            {labelOptions.showYardLogo && renderYardLogo(qrModalItem.sellerId, false, "max-h-5 max-w-[80px] p-0.5 rounded bg-white border border-slate-200")}
+                        <div className="min-w-0 flex-1 space-y-1.5 text-left">
+                          <div className="text-[9px] font-black text-amber-600 uppercase tracking-wider">
+                            {activeSeller?.companyName || qrModalItem.sellerName}
                           </div>
                           <h4 className="font-black text-xs text-slate-900 leading-snug">
                             {qrModalItem.title}
                           </h4>
                           <div className="text-[10px] text-slate-600 font-medium">
                             <span>{qrModalItem.make} {qrModalItem.model}</span>
-                            {labelOptions.showPartNumber && qrModalItem.partNumber && (
-                              <span className="font-mono block text-[9px] text-slate-500 font-bold">
-                                OEM: {qrModalItem.partNumber}
-                              </span>
+                            {qrModalItem.partNumber && (
+                              <span className="font-mono block text-[9px] text-slate-500">OEM: {qrModalItem.partNumber}</span>
                             )}
                           </div>
-                          {labelOptions.showPrice && (
-                            <div className="pt-0.5 flex items-center justify-between border-t border-slate-200">
-                              <span className="text-sm font-black text-emerald-700">
-                                {formatCurrency(qrModalItem.priceZar)}
-                              </span>
-                              <span className="text-[9px] font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded">
-                                {qrModalItem.condition}
-                              </span>
-                            </div>
-                          )}
-                          {labelOptions.showSellerInfo && (
-                            <div className="text-[9px] font-bold text-slate-700 flex items-center gap-1">
-                              <MessageSquare className="w-3 h-3 text-emerald-600" />
-                              <span>WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp}</span>
-                            </div>
-                          )}
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-200">
+                            <span className="text-sm font-black text-emerald-700">
+                              {formatCurrency(qrModalItem.priceZar)}
+                            </span>
+                            <span className="text-[9px] font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded">
+                              {qrModalItem.condition}
+                            </span>
+                          </div>
+                          <div className="text-[9px] font-bold text-slate-700 flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3 text-emerald-600" />
+                            <span>WA: {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp}</span>
+                          </div>
                         </div>
                       </>
                     )}
 
-                    {/* 5. SHOWROOM COUNTER FLYER */}
+                    {/* Showroom Counter Flyer */}
                     {qrTagFormat === 'counter_card' && (
                       <>
                         <div className="flex items-center justify-between border-b border-slate-200 pb-2">
@@ -2943,14 +2016,9 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                               PART-SMART<span className="text-amber-600">.ZA</span>
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {labelOptions.showYardLogo && renderYardLogo(qrModalItem.sellerId, false, "max-h-7 max-w-[120px] rounded border border-slate-200 p-0.5 bg-white")}
-                            {labelOptions.showSellerInfo && (
-                              <span className="text-xs font-bold text-slate-600">
-                                {activeSeller?.companyName || qrModalItem.sellerName}
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-xs font-bold text-slate-600">
+                            {activeSeller?.companyName || qrModalItem.sellerName}
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
@@ -2964,16 +2032,12 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                             <div className="text-xs text-slate-600 space-y-0.5">
                               <div><strong>Make/Model:</strong> {qrModalItem.make} {qrModalItem.model} ({qrModalItem.year || 'All'})</div>
                               <div><strong>Condition:</strong> <span className="uppercase font-bold">{qrModalItem.condition}</span></div>
-                              {labelOptions.showPartNumber && qrModalItem.partNumber && (
-                                <div><strong>Part No:</strong> <span className="font-mono">{qrModalItem.partNumber}</span></div>
-                              )}
+                              {qrModalItem.partNumber && <div><strong>Part No:</strong> <span className="font-mono">{qrModalItem.partNumber}</span></div>}
                               <div><strong>Location:</strong> {qrModalItem.city}, {qrModalItem.province}</div>
                             </div>
-                            {labelOptions.showPrice && (
-                              <div className="text-xl font-black text-emerald-700 pt-1">
-                                {formatCurrency(qrModalItem.priceZar)}
-                              </div>
-                            )}
+                            <div className="text-xl font-black text-emerald-700 pt-1">
+                              {formatCurrency(qrModalItem.priceZar)}
+                            </div>
                           </div>
 
                           <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-1">
@@ -2981,7 +2045,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                               <img
                                 src={qrCodeDataUrl}
                                 alt="WhatsApp Inquiry QR Code"
-                                className="w-32 h-32 object-contain"
+                                className="w-36 h-36 object-contain"
                               />
                             )}
                             <strong className="text-xs font-black text-slate-900 block">
@@ -2990,11 +2054,9 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                             <p className="text-[10px] text-slate-500">
                               Scan with your camera to chat with our parts desk immediately.
                             </p>
-                            {labelOptions.showSellerInfo && (
-                              <span className="font-mono font-bold text-xs text-emerald-700">
-                                {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp}
-                              </span>
-                            )}
+                            <span className="font-mono font-bold text-xs text-emerald-700">
+                              {activeSeller?.whatsapp || qrModalItem.sellerWhatsapp}
+                            </span>
                           </div>
                         </div>
 
@@ -3027,10 +2089,10 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   type="button"
                   onClick={handlePrintCurrentTag}
                   className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                  title="Print shelf tag to thermal printer or paper printer"
+                  title="Print sticker tag to thermal or standard printer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Shelf Label</span>
+                  <span>Print Label</span>
                 </button>
 
                 <button
@@ -3040,7 +2102,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   title="Download high resolution QR code PNG"
                 >
                   <Download className="w-4 h-4 text-amber-400" />
-                  <span>Download QR PNG</span>
+                  <span>Download PNG</span>
                 </button>
 
                 <button
@@ -3060,7 +2122,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   ) : (
                     <>
                       <Copy className="w-4 h-4 text-sky-400" />
-                      <span>Copy WA Link</span>
+                      <span>Copy Link</span>
                     </>
                   )}
                 </button>
@@ -3068,14 +2130,14 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setQrModalItem(null);
-                    handleOpenBatchQrModal();
+                    const waUrl = generateWhatsappInquiryUrl(qrModalItem, activeSeller || sellers.find(s => s.id === qrModalItem.sellerId));
+                    window.open(waUrl, '_blank', 'noopener,noreferrer');
                   }}
-                  className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-amber-500/30 active:scale-95"
-                  title="Switch to Batch Print All Inventory Labels"
+                  className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                  title="Test WhatsApp Link in new window"
                 >
-                  <Layers className="w-4 h-4" />
-                  <span>Batch Print All</span>
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Test Link</span>
                 </button>
               </div>
 
@@ -3083,7 +2145,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
             {/* Modal Footer */}
             <div className="p-4 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-              <span>Attach this label to your shelving channels, bins, or part boxes for instant walk-in leads.</span>
+              <span>Attach this QR code to the part shelf, bin, or windscreen for instant customer walk-in leads.</span>
               <button
                 type="button"
                 onClick={() => {
@@ -3100,40 +2162,35 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
         </div>
       )}
 
-      {/* BATCH INVENTORY QR & THERMAL SHELF LABELS BULK PRINT MODAL */}
+      {/* BATCH INVENTORY QR LABELS PRINT SHEET MODAL */}
       {batchQrPrintMode && (
         <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-5xl max-h-[92vh] max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl text-white my-auto flex flex-col">
             
             {/* Batch Header */}
-            <div className="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
                   <Printer className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-black text-white">
-                      Bulk Shelf Label & Thermal Tag Printing
-                    </h3>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded border border-amber-500/30 uppercase shrink-0">
-                      Thermal & Paper
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {batchQrItems.length} selected items ({batchQrItems.length * labelOptions.copiesCount} total labels) • <strong className="text-amber-400">{activeSeller?.companyName}</strong>
+                  <h3 className="text-base font-black text-white">
+                    Batch Inventory WhatsApp QR Labels
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {batchQrItems.length} inventory labels ready for printing • <strong className="text-amber-400">{activeSeller?.companyName}</strong>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handlePrintCurrentTag}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print {batchQrItems.length * labelOptions.copiesCount} Labels</span>
+                  <span>Print All Labels</span>
                 </button>
                 <button
                   onClick={() => setBatchQrPrintMode(false)}
@@ -3144,794 +2201,86 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
               </div>
             </div>
 
-            {/* Batch Controls Toolbar */}
-            <div className="p-5 space-y-4 border-b border-slate-800 bg-slate-950/70">
-              
-              {/* Printer / Label Format Selection */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-                    <Tag className="w-3.5 h-3.5 text-amber-400" />
-                    Select Thermal Printer Roll or Paper Format:
-                  </span>
-                  <span className="text-[10px] text-amber-400 font-medium">
-                    Single printable page formatted for thermal rolls
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setBatchLabelFormat('thermal_58')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      batchLabelFormat === 'thermal_58'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">58mm Thermal Roll</span>
-                    <span className="text-[9px] opacity-80 leading-none">2" Continuous / POS</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBatchLabelFormat('thermal_80')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      batchLabelFormat === 'thermal_80'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">80mm Thermal Roll</span>
-                    <span className="text-[9px] opacity-80 leading-none">3" Zebra / Wide Roll</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBatchLabelFormat('shelf_tag')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      batchLabelFormat === 'shelf_tag'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">Shelf Lip Tags</span>
-                    <span className="text-[9px] opacity-80 leading-none">80x50mm Paper Grid</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBatchLabelFormat('bin_sticker')}
-                    className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      batchLabelFormat === 'bin_sticker'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs">Bin Adhesive Stickers</span>
-                    <span className="text-[9px] opacity-80 leading-none">Landscape Peel Sheet</span>
-                  </button>
-                </div>
+            {/* Batch Labels Grid */}
+            <div className="p-6 space-y-6 flex-1 bg-slate-950">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-2xl text-xs flex items-center justify-between gap-3">
+                <span>
+                  💡 <strong>Scrapyard Tip:</strong> Use standard sticker sheets or cut along the borders to stick directly onto bins, shelving, or parts.
+                </span>
+                <button
+                  type="button"
+                  onClick={handlePrintCurrentTag}
+                  className="underline font-bold text-amber-400 cursor-pointer"
+                >
+                  Print (⌘P)
+                </button>
               </div>
 
-              {/* Thermal Toggles & Copies Counter */}
-              <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-slate-300 flex items-center gap-1.5 mr-1">
-                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                    Toggles:
-                  </span>
-
-                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showPrice}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showPrice: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">Price</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showPartNumber}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showPartNumber: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">OEM / Part #</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showSellerInfo}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showSellerInfo: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold">Yard WhatsApp</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.showYardLogo}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, showYardLogo: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold flex items-center gap-1">
-                      <Building2 className="w-3 h-3 text-amber-400 shrink-0" />
-                      Yard Logo
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={labelOptions.highContrastThermal}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, highContrastThermal: e.target.checked }))}
-                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500"
-                    />
-                    <span className="text-[11px] font-bold text-amber-400">Pure B&W</span>
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 font-bold text-[11px]">Copies / item:</span>
-                    <select
-                      value={labelOptions.copiesCount}
-                      onChange={(e) => setLabelOptions(prev => ({ ...prev, copiesCount: Number(e.target.value) }))}
-                      className="bg-slate-950 border border-slate-700 text-white font-bold rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-amber-500 outline-none"
-                    >
-                      <option value={1}>1 copy</option>
-                      <option value={2}>2 copies</option>
-                      <option value={3}>3 copies</option>
-                      <option value={4}>4 copies</option>
-                      <option value={5}>5 copies</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handlePrintCurrentTag}
-                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 print-only-container">
+                {batchQrItems.map(({ item, qrDataUrl }) => (
+                  <div
+                    key={item.id}
+                    className="bg-white text-slate-950 p-4 rounded-2xl border-2 border-slate-900 shadow-md flex flex-col justify-between space-y-3 print-qr-tag"
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print (⌘P)</span>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Batch Labels Live Printable Canvas */}
-            <div className="p-6 space-y-6 flex-1 bg-slate-950 overflow-y-auto">
-              
-              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-2xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Scissors className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>
-                    💡 <strong>Thermal Print Preview:</strong> Labels below are styled for direct continuous thermal roll feed with dashed tear lines, pure B&W contrast, and instant WhatsApp QR links.
-                  </span>
-                </div>
-                <div className="text-[11px] font-mono text-slate-400 shrink-0">
-                  Format: <strong className="text-amber-400 uppercase">{batchLabelFormat.replace('_', ' ')}</strong>
-                </div>
-              </div>
-
-              {/* Printable container formatted for thermal roll or grid */}
-              <div className={`print-only-container ${
-                batchLabelFormat === 'thermal_58' || batchLabelFormat === 'thermal_80'
-                  ? 'print-thermal-roll-container flex flex-col items-center'
-                  : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
-              }`}>
-                {batchQrItems.map(({ item, qrDataUrl }, itemIdx) => {
-                  // Render copies if requested
-                  const copies = Array.from({ length: labelOptions.copiesCount }, (_, i) => i);
-                  
-                  return copies.map((copyIdx) => (
-                    <div
-                      key={`${item.id}-copy-${copyIdx}`}
-                      className={`bg-white text-slate-950 rounded-xl shadow-md transition-all border-2 border-slate-950 print-qr-tag ${
-                        batchLabelFormat === 'thermal_58'
-                          ? 'p-3 w-64 flex flex-col items-center text-center space-y-2 print-thermal-58'
-                          : batchLabelFormat === 'thermal_80'
-                          ? 'p-4 w-80 flex flex-col space-y-2.5 print-thermal-80'
-                          : batchLabelFormat === 'shelf_tag'
-                          ? 'p-4 flex flex-col justify-between space-y-2.5'
-                          : 'p-4 flex flex-row items-center gap-3'
-                      }`}
-                    >
-                      {/* 1. 58mm DIRECT THERMAL ROLL LABEL */}
-                      {batchLabelFormat === 'thermal_58' && (
-                        <>
-                          <div className="w-full border-b border-dashed border-slate-950 pb-1.5 flex flex-col items-center text-center text-[9px] font-black uppercase text-slate-900 gap-1">
-                            <div className="w-full flex items-center justify-between">
-                              <span>PART-SMART ZA</span>
-                              {labelOptions.showSellerInfo && (
-                                <span className="truncate max-w-[120px] font-bold text-slate-800">
-                                  {activeSeller?.companyName || item.sellerName}
-                                </span>
-                              )}
-                            </div>
-                            {labelOptions.showYardLogo && (
-                              <div className="pt-0.5">
-                                {renderYardLogo(item.sellerId, true, "max-h-7 max-w-[120px]")}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="w-full text-center">
-                            <h4 className="font-black text-xs text-slate-950 leading-snug line-clamp-2 uppercase tracking-tight">
-                              {item.title}
-                            </h4>
-                            <div className="text-[9px] font-bold text-slate-800 mt-0.5">
-                              {item.make} {item.model} {item.year ? `(${item.year})` : ''}
-                            </div>
-                          </div>
-
-                          {labelOptions.showPartNumber && item.partNumber && (
-                            <div className="w-full bg-slate-100 py-0.5 px-1 rounded border border-slate-300 font-mono text-[9px] font-bold text-slate-950">
-                              OEM: {item.partNumber}
-                            </div>
-                          )}
-
-                          {labelOptions.showPrice && (
-                            <div className="w-full py-0.5 border-y border-slate-950 my-0.5">
-                              <span className="text-base font-black text-slate-950">
-                                {formatCurrency(item.priceZar)}
-                              </span>
-                              <span className="text-[8px] font-bold uppercase ml-1.5 px-1 py-0.2 bg-slate-200 text-slate-900 rounded">
-                                {item.condition}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="p-1 bg-white border border-slate-950 rounded-lg">
-                            <img
-                              src={qrDataUrl}
-                              alt="WhatsApp QR Code"
-                              className="w-32 h-32 object-contain mx-auto"
-                            />
-                          </div>
-
-                          <div className="w-full text-center space-y-0.5 pt-0.5 border-t border-dashed border-slate-950">
-                            <div className="text-[9px] font-black uppercase text-slate-950">
-                              SCAN FOR DIRECT WHATSAPP
-                            </div>
-                            {labelOptions.showSellerInfo && (
-                              <div className="text-[8px] font-mono font-bold text-slate-800">
-                                WA: {activeSeller?.whatsapp || item.sellerWhatsapp || item.sellerPhone}
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                      {/* 2. 80mm DIRECT THERMAL ROLL LABEL */}
-                      {batchLabelFormat === 'thermal_80' && (
-                        <>
-                          <div className="w-full border-b-2 border-slate-950 pb-1 flex items-center justify-between text-[10px] font-black uppercase">
-                            <div className="flex items-center gap-2">
-                              <span className="text-slate-950">PART-SMART.ZA</span>
-                              {labelOptions.showYardLogo && renderYardLogo(item.sellerId, true, "max-h-6 max-w-[90px]")}
-                            </div>
-                            {labelOptions.showSellerInfo && (
-                              <span className="truncate max-w-[140px] text-slate-800 font-bold">
-                                {activeSeller?.companyName || item.sellerName}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 text-left space-y-1">
-                              <h4 className="font-black text-sm text-slate-950 leading-tight">
-                                {item.title}
-                              </h4>
-                              <div className="text-[10px] text-slate-800 font-bold">
-                                {item.make} {item.model} {item.year ? `• ${item.year}` : ''}
-                              </div>
-                              
-                              {labelOptions.showPartNumber && item.partNumber && (
-                                <div className="text-[9px] font-mono font-bold text-slate-950 bg-slate-100 px-1 py-0.5 rounded border border-slate-300 inline-block">
-                                  OEM: {item.partNumber}
-                                </div>
-                              )}
-
-                              {labelOptions.showPrice && (
-                                <div className="pt-1">
-                                  <div className="text-lg font-black text-slate-950">
-                                    {formatCurrency(item.priceZar)}
-                                  </div>
-                                  <span className="text-[8px] font-bold uppercase bg-slate-200 px-1.5 py-0.5 rounded text-slate-900">
-                                    {item.condition}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="shrink-0 flex flex-col items-center">
-                              <div className="p-1 bg-white border-2 border-slate-950 rounded-lg">
-                                <img
-                                  src={qrDataUrl}
-                                  alt="WhatsApp QR Code"
-                                  className="w-28 h-28 object-contain"
-                                />
-                              </div>
-                              <span className="text-[8px] font-black uppercase text-slate-950 mt-0.5">
-                                Scan for WA
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="w-full text-center pt-1 border-t border-slate-950 flex items-center justify-between text-[9px] font-bold text-slate-900">
-                            <span>Scan with camera to chat</span>
-                            {labelOptions.showSellerInfo && (
-                              <span className="font-mono">WA: {activeSeller?.whatsapp || item.sellerWhatsapp}</span>
-                            )}
-                          </div>
-                        </>
-                      )}
-
-                      {/* 3. SHELF LIP TAGS (80x50mm Paper Grid) */}
-                      {batchLabelFormat === 'shelf_tag' && (
-                        <>
-                          <div className="border-b border-slate-300 pb-2">
-                            <div className="flex items-center justify-between text-[9px] font-black text-amber-600 uppercase">
-                              <div className="flex items-center gap-1.5">
-                                <span>Part-Smart ZA</span>
-                                {labelOptions.showYardLogo && renderYardLogo(item.sellerId, false, "max-h-5 max-w-[70px] p-0.5 rounded bg-white border border-slate-200")}
-                              </div>
-                              {labelOptions.showSellerInfo && (
-                                <span className="text-slate-700 font-bold truncate max-w-[110px]">
-                                  {activeSeller?.companyName || item.sellerName}
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="font-black text-xs text-slate-950 leading-tight mt-1 line-clamp-2 uppercase">
-                              {item.title}
-                            </h4>
-                            <div className="text-[10px] text-slate-700 mt-0.5 font-medium flex items-center justify-between">
-                              <span>{item.make} {item.model}</span>
-                              <span className="uppercase font-bold text-[9px] bg-slate-100 px-1 py-0.5 rounded border border-slate-200">{item.condition}</span>
-                            </div>
-                            {labelOptions.showPartNumber && item.partNumber && (
-                              <div className="text-[9px] font-mono text-slate-600 mt-0.5">
-                                OEM: <strong className="text-slate-900">{item.partNumber}</strong>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between gap-3 py-1">
-                            <div className="min-w-0">
-                              {labelOptions.showPrice && (
-                                <div className="text-base font-black text-emerald-700">
-                                  {formatCurrency(item.priceZar)}
-                                </div>
-                              )}
-                              {labelOptions.showSellerInfo && (
-                                <div className="text-[9px] text-slate-700 mt-1 font-bold">
-                                  WA: <strong>{activeSeller?.whatsapp || item.sellerWhatsapp}</strong>
-                                </div>
-                              )}
-                              <div className="text-[8px] text-slate-500 font-mono mt-0.5">
-                                {item.city}, {item.province}
-                              </div>
-                            </div>
-
-                            <div className="shrink-0 bg-white p-1 rounded-xl border border-slate-400">
-                              <img
-                                src={qrDataUrl}
-                                alt="QR Code"
-                                className="w-20 h-20 object-contain"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="text-center pt-1.5 border-t border-slate-300 text-[8px] text-slate-800 font-bold uppercase tracking-wider">
-                            Scan with camera for instant WhatsApp
-                          </div>
-                        </>
-                      )}
-
-                      {/* 4. BIN ADHESIVE STICKERS (Landscape) */}
-                      {batchLabelFormat === 'bin_sticker' && (
-                        <>
-                          <div className="shrink-0 bg-white p-1.5 rounded-xl border border-slate-300 shadow-xs flex flex-col items-center">
-                            <img
-                              src={qrDataUrl}
-                              alt="WhatsApp QR Code"
-                              className="w-24 h-24 object-contain"
-                            />
-                            <div className="text-[8px] text-center font-black uppercase text-emerald-700 mt-0.5">
-                              Scan for WA
-                            </div>
-                          </div>
-
-                          <div className="min-w-0 flex-1 space-y-1 text-left">
-                            <div className="flex items-center justify-between gap-2">
-                              {labelOptions.showSellerInfo && (
-                                <div className="text-[9px] font-black text-amber-600 uppercase tracking-wider truncate">
-                                  {activeSeller?.companyName || item.sellerName}
-                                </div>
-                              )}
-                              {labelOptions.showYardLogo && renderYardLogo(item.sellerId, false, "max-h-5 max-w-[70px] p-0.5 rounded bg-white border border-slate-200")}
-                            </div>
-                            <h4 className="font-black text-xs text-slate-900 leading-snug">
-                              {item.title}
-                            </h4>
-                            <div className="text-[10px] text-slate-600 font-medium">
-                              <span>{item.make} {item.model}</span>
-                              {labelOptions.showPartNumber && item.partNumber && (
-                                <span className="font-mono block text-[9px] text-slate-500 font-bold">
-                                  OEM: {item.partNumber}
-                                </span>
-                              )}
-                            </div>
-                            {labelOptions.showPrice && (
-                              <div className="pt-0.5 flex items-center justify-between border-t border-slate-200">
-                                <span className="text-sm font-black text-emerald-700">
-                                  {formatCurrency(item.priceZar)}
-                                </span>
-                                <span className="text-[9px] font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded">
-                                  {item.condition}
-                                </span>
-                              </div>
-                            )}
-                            {labelOptions.showSellerInfo && (
-                              <div className="text-[9px] font-bold text-slate-700 flex items-center gap-1">
-                                <MessageSquare className="w-3 h-3 text-emerald-600" />
-                                <span>WA: {activeSeller?.whatsapp || item.sellerWhatsapp}</span>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-
+                    <div className="border-b border-slate-200 pb-2">
+                      <div className="flex items-center justify-between text-[9px] font-black text-amber-600 uppercase">
+                        <span>Part-Smart ZA</span>
+                        <span className="text-slate-500 font-bold truncate max-w-[130px]">
+                          {activeSeller?.companyName || item.sellerName}
+                        </span>
+                      </div>
+                      <h4 className="font-black text-xs text-slate-900 leading-tight mt-1 line-clamp-2">
+                        {item.title}
+                      </h4>
+                      <div className="text-[10px] text-slate-600 mt-0.5">
+                        {item.make} {item.model} • <span className="uppercase font-bold">{item.condition}</span>
+                      </div>
                     </div>
-                  ));
-                })}
+
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <div className="min-w-0">
+                        <div className="text-base font-black text-emerald-700">
+                          {formatCurrency(item.priceZar)}
+                        </div>
+                        <div className="text-[9px] text-slate-500 mt-1">
+                          WA: <strong>{activeSeller?.whatsapp || item.sellerWhatsapp}</strong>
+                        </div>
+                        <div className="text-[8px] text-slate-500 font-mono mt-0.5">
+                          {item.city}, {item.province}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 bg-white p-1 rounded-xl border border-slate-300">
+                        <img
+                          src={qrDataUrl}
+                          alt="QR Code"
+                          className="w-20 h-20 object-contain"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-center pt-1.5 border-t border-slate-200 text-[8px] text-slate-500 font-bold uppercase tracking-wider text-emerald-800">
+                      Scan to WhatsApp Seller Directly
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Batch Footer */}
             <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <span>
-                  Total <strong>{batchQrItems.length}</strong> items • <strong>{batchQrItems.length * labelOptions.copiesCount}</strong> labels to print.
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handlePrintCurrentTag}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Print All Labels</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBatchQrPrintMode(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* LISTING LIMIT WARNING MODAL */}
-      {limitWarningModal && (
-        <div className="fixed inset-0 z-60 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-amber-500/40 rounded-3xl w-full max-w-md p-6 space-y-5 text-white shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Listing Limit Reached</h3>
-                  <p className="text-xs text-amber-400 font-semibold">
-                    {limitWarningModal.planName} Plan ({limitWarningModal.currentCount} / {limitWarningModal.maxAllowed} listings)
-                  </p>
-                </div>
-              </div>
+              <span className="text-slate-400">
+                Total {batchQrItems.length} inventory tags generated.
+              </span>
               <button
                 type="button"
-                onClick={() => setLimitWarningModal(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"
+                onClick={() => setBatchQrPrintMode(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Done
               </button>
             </div>
 
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs text-slate-300">
-              <p>
-                Your scrap yard has reached the maximum of <strong className="text-white">{limitWarningModal.maxAllowed} active listings</strong> allowed under the <strong className="text-amber-400">{limitWarningModal.planName}</strong> plan.
-              </p>
-              <p className="text-slate-400 text-[11px]">
-                Upgrade to a higher tier like <strong className="text-amber-400">Pro (50 listings)</strong> or <strong className="text-emerald-400">Enterprise (Unlimited listings)</strong> to list more truck spares and heavy equipment parts.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLimitWarningModal(null);
-                  setActiveTab('subscription');
-                }}
-                className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <Crown className="w-4 h-4" />
-                <span>View Comparison & Upgrade Plan</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setLimitWarningModal(null)}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
-              >
-                Close & Manage Existing Listings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PLAN UPGRADE CONFIRMATION DIALOG */}
-      {upgradeTargetPlan && (
-        <div className="fixed inset-0 z-60 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-3xl w-full max-w-lg p-6 space-y-5 text-white shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-                  <Zap className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">
-                    {upgradeTargetPlan.isUpgrade ? 'Confirm Subscription Upgrade' : 'Switch Subscription Tier'}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Yard: <strong className="text-white">{activeSeller?.companyName}</strong>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setUpgradeTargetPlan(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Plan Details & Rate Card */}
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block">
-                    Target Plan
-                  </span>
-                  <h4 className="text-xl font-black text-white">{upgradeTargetPlan.name} Plan</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">{upgradeTargetPlan.description}</p>
-                </div>
-                <div className="text-right">
-                  {upgradeTargetPlan.isDiscountActive && upgradeTargetPlan.price < upgradeTargetPlan.originalPrice ? (
-                    <div>
-                      <span className="text-xs text-slate-500 line-through font-bold block">
-                        R{upgradeTargetPlan.originalPrice}
-                      </span>
-                      <div className="text-2xl font-black text-amber-400">
-                        R{upgradeTargetPlan.price}
-                        <span className="text-xs text-slate-400 font-normal">/mo</span>
-                      </div>
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full inline-block mt-0.5">
-                        {upgradeTargetPlan.discountPercentage}% OFF Promo
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-2xl font-black text-white">
-                      R{upgradeTargetPlan.price}
-                      <span className="text-xs text-slate-400 font-normal">/mo</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Key Features Included */}
-              <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Included in this Tier:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {upgradeTargetPlan.features.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-slate-300">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span className="truncate">{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Note about EFT Payment */}
-            <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl text-xs text-amber-300 flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed">
-                Updating to this plan immediately applies the new listing limits. Please transfer the monthly fee (<strong>R{upgradeTargetPlan.price}</strong>) via EFT using the App Owner banking details.
-              </p>
-            </div>
-
-            {/* Dialog Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  handleSelectPlanForActiveSeller(upgradeTargetPlan.id);
-                  setUpgradeTargetPlan(null);
-                  setActiveTab('subscription');
-                }}
-                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm & Switch to {upgradeTargetPlan.name}</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setUpgradeTargetPlan(null)}
-                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Yard Branding & Profile Logo Configuration Modal */}
-      {isBrandingModalOpen && activeSeller && (
-        <div className="fixed inset-0 z-60 bg-slate-950/90 backdrop-blur flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-5 text-white my-auto shadow-2xl animate-fadeIn">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold">Yard Branding & Logo</h3>
-                  <p className="text-xs text-slate-400">Configure logo for printable shelf labels & WhatsApp inquiries</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsBrandingModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Logo Preview & Upload */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-                <div className="w-20 h-20 rounded-2xl bg-white p-1.5 border-2 border-amber-500/50 shadow-md flex items-center justify-center overflow-hidden shrink-0">
-                  {brandingLogoInput.trim() ? (
-                    <img
-                      src={brandingLogoInput.trim()}
-                      alt="Logo preview"
-                      className="max-h-full max-w-full object-contain"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-slate-400 text-center">
-                      <Building2 className="w-8 h-8 opacity-40" />
-                      <span className="text-[9px] font-black text-slate-500 mt-1 uppercase">No Logo</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1 text-xs">
-                  <div className="font-bold text-white text-sm">{activeSeller.companyName}</div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    This logo appears at the top/corner of all printed thermal rolls (58mm/80mm), shelf-lip tags, and adhesive bin stickers.
-                  </p>
-                  {brandingLogoInput.trim() && (
-                    <span className="inline-block text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                      ✓ Logo URL Active
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* URL Input */}
-              <div className="space-y-1.5 text-xs">
-                <label className="text-slate-300 font-medium flex items-center justify-between">
-                  <span>Direct Image URL (PNG / JPG / WebP / SVG)</span>
-                  <span className="text-[10px] text-slate-500">Square or rectangular logo recommended</span>
-                </label>
-                <input
-                  type="url"
-                  value={brandingLogoInput}
-                  onChange={(e) => setBrandingLogoInput(e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* Sample Presets */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> Quick Industry Logo Presets:
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {[
-                    { label: '🚜 Heavy Equipment / Yellow Metal', url: 'https://images.unsplash.com/photo-1579273166152-d725a4e2b755?auto=format&fit=crop&w=300&q=80' },
-                    { label: '🚚 Truck & Commercial Diesel', url: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=300&q=80' },
-                    { label: '🚗 Auto Scrap & Dismantler', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=300&q=80' },
-                    { label: '⚙️ Industrial Machine Spares', url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=300&q=80' }
-                  ].map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setBrandingLogoInput(preset.url)}
-                      className="text-left p-2.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all cursor-pointer group"
-                    >
-                      <div className="font-bold text-slate-200 group-hover:text-amber-400 text-[11px]">{preset.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  updateSeller({
-                    ...activeSeller,
-                    logoUrl: brandingLogoInput.trim() || undefined
-                  });
-                  showNotice('Yard Profile Logo updated successfully! It will now appear on all printed labels.');
-                  setIsBrandingModalOpen(false);
-                }}
-                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <Check className="w-4 h-4" />
-                <span>Save Yard Logo</span>
-              </button>
-
-              {brandingLogoInput && (
-                <button
-                  type="button"
-                  onClick={() => setBrandingLogoInput('')}
-                  className="px-3 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs rounded-xl border border-rose-500/30 cursor-pointer"
-                  title="Remove logo"
-                >
-                  Clear
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsBrandingModalOpen(false)}
-                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         </div>
       )}

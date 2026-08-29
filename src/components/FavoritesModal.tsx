@@ -29,7 +29,6 @@ import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
 import { PROVINCES_LIST } from '../data/initialData';
 import { ListingDetailModal } from './ListingDetailModal';
 import { SellerContactModal } from './SellerContactModal';
-import { SellerTrustBadge } from './SellerTrustBadge';
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -417,13 +416,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                             <span className="truncate">{item.city}, {item.province}</span>
                           </div>
 
-                          <div className="flex items-center justify-between gap-1 pt-0.5">
-                            <div className="flex items-center gap-1 text-[10px] text-slate-400 truncate min-w-0">
+                          {seller && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 truncate">
                               <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span className="truncate text-slate-300 font-medium">{seller?.companyName || item.sellerName}</span>
+                              <span className="truncate text-slate-300 font-medium">{seller.companyName}</span>
+                              {seller.subscriptionStatus === 'active' && (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                              )}
                             </div>
-                            <SellerTrustBadge seller={seller} item={item} variant="card-pill" />
-                          </div>
+                          )}
                         </div>
                       </div>
 

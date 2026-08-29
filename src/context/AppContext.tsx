@@ -74,14 +74,9 @@ interface AppContextType {
     description: string;
     maxListings: number;
     features: string[];
-    price: number;
-    effectivePrice: number;
-    finalPrice: number;
-    originalPrice: number;
     basePrice: number;
-    isDiscountActive: boolean;
+    finalPrice: number;
     hasDiscount: boolean;
-    discountPercentage: number;
     discountPercent: number;
     savingsZar: number;
     promotionalBadge?: string;
@@ -495,23 +490,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       plan = currentPlans[0] || SUBSCRIPTION_PLANS[0];
     }
 
-    const basePrice = (typeof plan.priceZar === 'number' && plan.priceZar > 0) ? plan.priceZar : 450;
-    
-    // Check both plan-level discount and global promotional campaign
-    const campaign = ownerSettings.promotionalCampaign;
-    const isCampaignActive = Boolean(campaign?.enabled);
-    const campaignDiscount = (isCampaignActive && typeof campaign?.discountPercentage === 'number' && campaign.discountPercentage > 0)
-      ? campaign.discountPercentage
+    const basePrice = plan.priceZar || 450;
+    const isPromoActive = Boolean(plan.isDiscountActive);
+    const discountPercent = (isPromoActive && typeof plan.discountPercentage === 'number')
+      ? plan.discountPercentage
       : 0;
-
-    const isPromoActive = Boolean(plan.isDiscountActive) || (isCampaignActive && campaignDiscount > 0);
-    
-    let discountPercent = 0;
-    if (typeof plan.discountPercentage === 'number' && plan.discountPercentage > 0) {
-      discountPercent = plan.discountPercentage;
-    } else if (isCampaignActive && campaignDiscount > 0) {
-      discountPercent = campaignDiscount;
-    }
 
     let finalPrice = basePrice;
     if (isPromoActive) {
@@ -522,23 +505,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Safety guarantees
-    if (typeof finalPrice !== 'number' || isNaN(finalPrice) || finalPrice <= 0) {
-      finalPrice = basePrice;
-    }
-
     const hasDiscount = isPromoActive && finalPrice < basePrice;
     const savingsZar = Math.max(0, basePrice - finalPrice);
     const calculatedDiscountPct = hasDiscount
       ? (discountPercent > 0 ? discountPercent : Math.round((savingsZar / basePrice) * 100))
       : 0;
-
-    const promotionalBadge = plan.promotionalBadge
-      || (isCampaignActive && campaign?.badgeText ? campaign.badgeText : undefined)
-      || (hasDiscount ? `🔥 ${calculatedDiscountPct}% OFF` : undefined);
-
-    const promoNotice = plan.promoNotice
-      || (isCampaignActive && campaign?.headline ? campaign.headline : undefined);
 
     return {
       plan,
@@ -547,18 +518,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: plan.description,
       maxListings: plan.maxListings,
       features: plan.features,
-      price: finalPrice,
-      effectivePrice: finalPrice,
-      finalPrice,
-      originalPrice: basePrice,
       basePrice,
-      isDiscountActive: hasDiscount,
+      finalPrice,
       hasDiscount,
-      discountPercentage: calculatedDiscountPct,
       discountPercent: calculatedDiscountPct,
       savingsZar,
-      promotionalBadge,
-      promoNotice
+      promotionalBadge: plan.promotionalBadge || (hasDiscount ? `🔥 ${calculatedDiscountPct}% OFF` : undefined),
+      promoNotice: plan.promoNotice
     };
   };
 

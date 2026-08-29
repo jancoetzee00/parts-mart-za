@@ -25,8 +25,6 @@ import { useApp } from '../context/AppContext';
 import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
 import { AiPartAssistantModal } from './AiPartAssistantModal';
-import { SellerTrustBadge } from './SellerTrustBadge';
-import { getSellerTrustInfo } from '../lib/trustBadges';
 
 interface ListingDetailModalProps {
   item: InventoryItem;
@@ -251,33 +249,24 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Interactive Visual Trust Badge */}
-                  <SellerTrustBadge seller={seller} item={item} variant="card-pill" />
+                  {isSellerActive ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <CheckCircle2 className="w-3 h-3" /> Subscribed Yard
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <Info className="w-3 h-3" /> Pending Verification
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-start gap-3.5">
-                  {/* Yard Logo */}
-                  <div className="w-14 h-14 rounded-2xl bg-white p-1 border border-slate-700 shadow-md flex items-center justify-center overflow-hidden shrink-0">
-                    {seller?.logoUrl ? (
-                      <img
-                        src={seller.logoUrl}
-                        alt={seller.companyName || item.sellerName}
-                        className="max-h-full max-w-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <Building2 className="w-7 h-7 text-slate-800" />
-                    )}
-                  </div>
-
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <h2 className="text-base font-bold text-white truncate">{item.sellerName}</h2>
-                    {seller && (
-                      <p className="text-xs text-slate-400">
-                        {seller.address}, {seller.city} ({seller.province})
-                      </p>
-                    )}
-                  </div>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-white">{item.sellerName}</h2>
+                  {seller && (
+                    <p className="text-xs text-slate-400">
+                      {seller.address}, {seller.city} ({seller.province})
+                    </p>
+                  )}
                 </div>
 
                 {/* Direct Action Buttons */}
