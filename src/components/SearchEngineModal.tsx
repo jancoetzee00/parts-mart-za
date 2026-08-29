@@ -42,6 +42,7 @@ import { CATEGORY_VISUALS } from '../data/categoryImages';
 import { ListingDetailModal } from './ListingDetailModal';
 import { generateWhatsappInquiryUrl } from '../lib/whatsapp';
 import { SellerContactModal } from './SellerContactModal';
+import { SellerTrustBadge } from './SellerTrustBadge';
 
 interface SearchEngineModalProps {
   isOpen: boolean;
@@ -643,9 +644,12 @@ export const SearchEngineModal: React.FC<SearchEngineModalProps> = ({
                           {highlightText(item.title, query)}
                         </h3>
 
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                          <span className="truncate">{item.city}, {item.province}</span>
+                        <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">{item.city}, {item.province}</span>
+                          </div>
+                          <SellerTrustBadge seller={seller} item={item} variant="card-pill" />
                         </div>
 
                         {/* Matched Tags */}

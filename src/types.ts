@@ -41,6 +41,32 @@ export interface SubscriptionPromoCampaign {
 
 export type SubscriptionStatus = 'active' | 'unpaid' | 'pending_verification' | 'expired';
 
+export type SellerTrustTier = 'enterprise' | 'pro' | 'verified' | 'pending' | 'unverified';
+
+export interface SellerTrustInfo {
+  tier: SellerTrustTier;
+  badgeLabel: string;
+  shortBadgeLabel: string;
+  badgeTitle: string;
+  iconName: 'crown' | 'shield-check' | 'award' | 'check' | 'clock' | 'alert-triangle';
+  themeColor: {
+    bg: string;
+    border: string;
+    text: string;
+    badgeGradient: string;
+    pillBg: string;
+    iconColor: string;
+    glow: string;
+  };
+  tierRank: number; // 4: Enterprise, 3: Pro, 2: Basic Active, 1: Pending, 0: Unpaid/Expired
+  isVerified: boolean;
+  tagline: string;
+  description: string;
+  trustPerks: string[];
+  responseTime?: string;
+  guaranteeNotice: string;
+}
+
 export interface Seller {
   id: string;
   companyName: string;
@@ -57,6 +83,9 @@ export interface Seller {
   subscriptionDueDate: string; // ISO Date String
   lastPaymentRef?: string;
   paymentProofSubmittedAt?: string;
+  isCipcVerified?: boolean; // South African CIPC registration verified
+  isPhysicalYardVerified?: boolean; // Physical premises audited
+  yearsInBusiness?: number; // e.g. 10+ years
   outOfOfficeEnabled?: boolean;
   outOfOfficeMessage?: string;
   outOfOfficeReturnDate?: string;
