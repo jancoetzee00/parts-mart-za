@@ -30,6 +30,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Connection test document
+    match /test/{testId} {
+      allow read: if true;
+    }
+
     // Sellers directory
     match /sellers/{sellerId} {
       allow read: if true;

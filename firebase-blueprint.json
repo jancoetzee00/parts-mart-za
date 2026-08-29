@@ -172,6 +172,10 @@
     "/admins/{adminId}": {
       "schema": "Admin",
       "description": "Admins collection"
+    },
+    "/test/{testId}": {
+      "schema": "TestConnection",
+      "description": "Health and connection testing document"
     }
   }
 }

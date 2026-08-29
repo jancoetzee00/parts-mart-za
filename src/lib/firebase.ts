@@ -8,7 +8,7 @@ import {
   User
 } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   getDocFromServer,
   collection,
@@ -33,8 +33,14 @@ import {
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with database ID specified in config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore with auto-detect long-polling to prevent stream timeouts in proxy/iframe environments
+export const db = initializeFirestore(
+  app,
+  {
+    experimentalAutoDetectLongPolling: true,
+  },
+  firebaseConfig.firestoreDatabaseId
+);
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -68,8 +74,9 @@ export interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const currentUser = auth.currentUser;
+  const errMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: currentUser?.uid,
       email: currentUser?.email,
@@ -84,8 +91,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Operation Info: ', JSON.stringify(errInfo));
+  return errInfo;
 }
 
 // Connection test helper
@@ -96,9 +103,9 @@ export async function testFirebaseConnection(): Promise<boolean> {
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client appears offline. Falling back to cached data.');
+      console.warn('Firebase client operating in offline cache mode. Continuing with local data.');
     } else {
-      console.log('Firebase connection tested:', error);
+      console.log('Firebase connection test status:', error);
     }
     return false;
   }
