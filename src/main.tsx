@@ -4,7 +4,7 @@ import App from './App.tsx';
 import './index.css';
 
 // Register PWA Service Worker for Mobile, Tablet & Desktop Offline caching
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // Ignored in dev / sandbox
