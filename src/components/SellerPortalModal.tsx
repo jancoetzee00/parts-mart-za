@@ -48,10 +48,12 @@ import {
   CheckSquare,
   Square,
   ListChecks,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Calculator
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
+import { TierSavingsCalculator } from './TierSavingsCalculator';
 import { generateWhatsappInquiryUrl, buildWhatsappInquiryText } from '../lib/whatsapp';
 import {
   InventoryItem,
@@ -94,6 +96,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
+  const [subscriptionSubView, setSubscriptionSubView] = useState<'calculator' | 'matrix'>('calculator');
   
   // Notice & notification state
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -1657,20 +1660,81 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
           {activeTab === 'subscription' && (
             <div className="space-y-8">
               
-              {/* TIERED PLANS COMPARISON TABLE */}
-              <div className="bg-slate-950/80 p-6 rounded-3xl border border-slate-800">
-                {renderPlansComparisonTable(
-                  activeSeller ? activeSeller.planId : regForm.planId,
-                  (pId) => {
+              {/* SUBVIEW SWITCHER: CALCULATOR VS MATRIX */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <Calculator className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Subscription Tools & Pricing</h4>
+                    <p className="text-[11px] text-slate-400">Compare Basic vs Premium savings or view full feature matrix</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 w-full sm:w-auto">
+                  <button
+                    id="btn-subview-calculator"
+                    type="button"
+                    onClick={() => setSubscriptionSubView('calculator')}
+                    className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      subscriptionSubView === 'calculator'
+                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <Calculator className="w-3.5 h-3.5" />
+                    <span>Savings & ROI Calculator</span>
+                  </button>
+
+                  <button
+                    id="btn-subview-matrix"
+                    type="button"
+                    onClick={() => setSubscriptionSubView('matrix')}
+                    className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      subscriptionSubView === 'matrix'
+                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Comparison Grid</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* VIEW 1: INTERACTIVE TIER SAVINGS CALCULATOR */}
+              {subscriptionSubView === 'calculator' ? (
+                <TierSavingsCalculator
+                  subscriptionPlans={subscriptionPlans && subscriptionPlans.length > 0 ? subscriptionPlans : SUBSCRIPTION_PLANS}
+                  activePlanId={activeSeller ? activeSeller.planId : regForm.planId}
+                  currentSeller={activeSeller}
+                  getPlanEffectivePricing={getPlanEffectivePricing}
+                  onSelectPlan={(pId) => {
                     if (activeSeller) {
                       handleSelectPlanForActiveSeller(pId);
                     } else {
                       setRegForm(prev => ({ ...prev, planId: pId }));
                       setActiveTab('register');
                     }
-                  }
-                )}
-              </div>
+                  }}
+                />
+              ) : (
+                /* VIEW 2: TIERED PLANS COMPARISON TABLE */
+                <div className="bg-slate-950/80 p-6 rounded-3xl border border-slate-800">
+                  {renderPlansComparisonTable(
+                    activeSeller ? activeSeller.planId : regForm.planId,
+                    (pId) => {
+                      if (activeSeller) {
+                        handleSelectPlanForActiveSeller(pId);
+                      } else {
+                        setRegForm(prev => ({ ...prev, planId: pId }));
+                        setActiveTab('register');
+                      }
+                    }
+                  )}
+                </div>
+              )}
 
               {!activeSeller ? (
                 <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-center space-y-3">

@@ -43,9 +43,12 @@ import {
   Plus,
   Flame,
   ArrowRight,
-  Gift
+  Gift,
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { SubscriptionRevenueChart } from './SubscriptionRevenueChart';
 import {
   OwnerBankingDetails,
   Seller,
@@ -95,7 +98,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   const [loginError, setLoginError] = useState('');
 
   // Active Admin Tab
-  const [adminTab, setAdminTab] = useState<'sellers' | 'pricing' | 'outofoffice' | 'inventory' | 'unpaid' | 'banking' | 'security'>('sellers');
+  const [adminTab, setAdminTab] = useState<'sellers' | 'pricing' | 'analytics' | 'outofoffice' | 'inventory' | 'unpaid' | 'banking' | 'security'>('sellers');
 
   // Action status message
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -803,10 +806,19 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
             
             {/* Owner Metrics Ribbon */}
             <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Est. Monthly Revenue</span>
+              <button
+                type="button"
+                onClick={() => setAdminTab('analytics')}
+                className="bg-slate-900 hover:bg-slate-850 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/50 text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Est. Monthly Revenue</span>
+                  <span className="text-[10px] text-emerald-400 font-bold group-hover:underline flex items-center gap-0.5">
+                    Trends <TrendingUp className="w-3 h-3" />
+                  </span>
+                </div>
                 <div className="text-base font-black text-emerald-400 mt-0.5">{formatCurrency(monthlyRevenue)}</div>
-              </div>
+              </button>
 
               <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Registered Sellers</span>
@@ -837,6 +849,19 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                 }`}
               >
                 <Users className="w-3.5 h-3.5" /> Manage & Delete Sellers ({sellers.length})
+              </button>
+
+              <button
+                id="btn-admin-tab-analytics"
+                onClick={() => setAdminTab('analytics')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  adminTab === 'analytics'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Revenue Trends & Analytics</span>
               </button>
 
               <button
@@ -2075,14 +2100,25 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleSaveAllPricingAndCampaign()}
-                        className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Publish Changes Live</span>
-                      </button>
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setAdminTab('analytics')}
+                          className="px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/50 text-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                        >
+                          <TrendingUp className="w-4 h-4 text-emerald-400" />
+                          <span>View Revenue Trends</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveAllPricingAndCampaign()}
+                          className="flex-1 md:flex-none px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Publish Changes Live</span>
+                        </button>
+                      </div>
                     </div>
 
                     {pricingSaveSuccess && (
@@ -2595,6 +2631,19 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                     </button>
                   </div>
 
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* TAB: REVENUE TRENDS & ANALYTICS DATA VISUALIZATION */}
+              {/* ========================================================================= */}
+              {adminTab === 'analytics' && (
+                <div className="space-y-6 max-w-6xl mx-auto">
+                  <SubscriptionRevenueChart
+                    sellers={sellers}
+                    subscriptionPlans={plansForm}
+                    getPlanEffectivePricing={getPlanEffectivePricing}
+                  />
                 </div>
               )}
 
