@@ -49,12 +49,15 @@ import {
   Square,
   ListChecks,
   Image as ImageIcon,
-  Calculator
+  Calculator,
+  CalendarCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
 import { TierSavingsCalculator } from './TierSavingsCalculator';
 import { WhatsappBroadcastTool } from './WhatsappBroadcastTool';
+import { WhatsappInventoryExportModal } from './WhatsappInventoryExportModal';
+import { SubscriptionOverviewTab } from './SubscriptionOverviewTab';
 import { generateWhatsappInquiryUrl, buildWhatsappInquiryText } from '../lib/whatsapp';
 import {
   InventoryItem,
@@ -96,7 +99,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     deleteInventoryItem
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'broadcast' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'broadcast' | 'subscription_overview' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
   const [subscriptionSubView, setSubscriptionSubView] = useState<'calculator' | 'matrix'>('calculator');
   
   // Notice & notification state
@@ -184,6 +187,21 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
   // Multi-Select & Bulk Printing State
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+  // WhatsApp Grid Export Modal State
+  const [isWhatsappExportOpen, setIsWhatsappExportOpen] = useState<boolean>(false);
+  const [whatsappExportPreSelectedIds, setWhatsappExportPreSelectedIds] = useState<string[]>([]);
+
+  const handleOpenWhatsappExport = (itemIds?: string[]) => {
+    if (itemIds && itemIds.length > 0) {
+      setWhatsappExportPreSelectedIds(itemIds);
+    } else if (selectedItemIds.length > 0) {
+      setWhatsappExportPreSelectedIds(selectedItemIds);
+    } else {
+      setWhatsappExportPreSelectedIds([]);
+    }
+    setIsWhatsappExportOpen(true);
+  };
 
   // Item Form Modal state (For Adding / Editing Inventory)
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
@@ -1205,6 +1223,29 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             )}
 
             <button
+              id="btn-seller-tab-sub-overview"
+              onClick={() => setActiveTab('subscription_overview')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'subscription_overview'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-black'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+              title="View Days Remaining in Billing Cycle & Historical Invoices"
+            >
+              <CalendarCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Subscription Overview</span>
+              {activeSeller?.subscriptionStatus === 'active' ? (
+                <span className="bg-emerald-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                  ACTIVE
+                </span>
+              ) : activeSeller?.subscriptionStatus === 'pending_verification' ? (
+                <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                  PENDING
+                </span>
+              ) : null}
+            </button>
+
+            <button
               onClick={() => setActiveTab('subscription')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === 'subscription'
@@ -1396,6 +1437,17 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <button
                         type="button"
+                        onClick={() => handleOpenWhatsappExport()}
+                        disabled={sellerListings.length === 0}
+                        className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                        title="Export full inventory grid as formatted WhatsApp payload for customer lists & broadcast groups"
+                      >
+                        <Share2 className="w-4 h-4 stroke-[2.4]" />
+                        <span>Export Grid to WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setActiveTab('broadcast')}
                         className="px-3.5 py-2.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                         title="Broadcast New Inventory Arrivals via WhatsApp to Customer Network"
@@ -1541,6 +1593,20 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
                           <button
                             type="button"
+                            onClick={() => handleOpenWhatsappExport(selectedItemIds.length > 0 ? selectedItemIds : undefined)}
+                            className="px-3.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                            title="Export current inventory grid as formatted WhatsApp broadcast message"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>
+                              {selectedItemIds.length > 0
+                                ? `Export WhatsApp (${selectedItemIds.length})`
+                                : `Export Grid to WhatsApp`}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => handleOpenBatchQrModal()}
                             className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
                             title="Bulk Print shelf labels for selected items"
@@ -1570,6 +1636,15 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                             className="text-slate-400 hover:text-slate-200 text-[11px] underline cursor-pointer"
                           >
                             Clear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWhatsappExport(selectedItemIds)}
+                            className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                            title="Export selected items to formatted WhatsApp payload"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                            <span>Export WhatsApp ({selectedItemIds.length})</span>
                           </button>
                           <button
                             type="button"
@@ -1637,6 +1712,13 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
                               <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                                 <button
+                                  onClick={() => handleOpenWhatsappExport([item.id])}
+                                  className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors cursor-pointer"
+                                  title="Export this listing as formatted WhatsApp message payload"
+                                >
+                                  <Share2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
                                   onClick={() => handleOpenQrModal(item)}
                                   className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                                   title="Open Print Shelf Label UI (Small Thermal & Paper Labels with WhatsApp QR)"
@@ -1684,6 +1766,50 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             </div>
           )}
 
+          {/* TAB: SUBSCRIPTION OVERVIEW (Days Remaining Progress Bar & Historical Payments) */}
+          {activeTab === 'subscription_overview' && (
+            <div>
+              {!activeSeller ? (
+                <div className="bg-slate-950 p-8 rounded-2xl border border-slate-800 text-center space-y-4">
+                  <Building2 className="w-12 h-12 text-amber-400 mx-auto opacity-80" />
+                  <h3 className="text-base font-bold text-white">Select a Yard to View Subscription Overview</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Please select an active equipment yard or register a new seller account to track your billing cycle, days remaining, and historical tax invoices.
+                  </p>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => setActiveTab('switch_account')}
+                      className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      Select Existing Seller
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('register')}
+                      className="px-4 py-2 bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      Register New Seller
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <SubscriptionOverviewTab
+                  seller={activeSeller}
+                  ownerSettings={ownerSettings}
+                  subscriptionPlans={subscriptionPlans && subscriptionPlans.length > 0 ? subscriptionPlans : SUBSCRIPTION_PLANS}
+                  getPlanEffectivePricing={getPlanEffectivePricing}
+                  onSubmitEftProof={(ref) => {
+                    submitPaymentProof(activeSeller.id, ref);
+                    showNotice('EFT Payment Proof submitted to App Owner for verification.');
+                  }}
+                  onNavigateToPlans={() => setActiveTab('subscription')}
+                  onSelectPlanUpgrade={(pId) => {
+                    handleSelectPlanForActiveSeller(pId as SubscriptionPlanId);
+                  }}
+                />
+              )}
+            </div>
+          )}
+
           {/* TAB 2: PLANS & OWNER BANKING DETAILS */}
           {activeTab === 'subscription' && (
             <div className="space-y-8">
@@ -1700,7 +1826,18 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 w-full sm:w-auto flex-wrap">
+                  <button
+                    id="btn-subview-to-overview"
+                    type="button"
+                    onClick={() => setActiveTab('subscription_overview')}
+                    className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-amber-400 hover:text-amber-300 hover:bg-slate-800 border border-amber-500/30"
+                    title="View Billing Cycle Progress Bar & Historical Payments"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Billing Cycle & Invoices</span>
+                  </button>
+
                   <button
                     id="btn-subview-calculator"
                     type="button"
@@ -2170,6 +2307,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
               seller={activeSeller}
               sellerListings={sellerListings}
               onOpenInventoryTab={() => setActiveTab('inventory')}
+              onOpenExportGridModal={() => handleOpenWhatsappExport()}
             />
           )}
 
@@ -4036,6 +4174,20 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* WHATSAPP INVENTORY EXPORT MODAL */}
+      {isWhatsappExportOpen && activeSeller && (
+        <WhatsappInventoryExportModal
+          seller={activeSeller}
+          inventory={sellerListings}
+          preSelectedIds={whatsappExportPreSelectedIds}
+          onClose={() => setIsWhatsappExportOpen(false)}
+          onOpenBroadcastTool={() => {
+            setIsWhatsappExportOpen(false);
+            setActiveTab('broadcast');
+          }}
+        />
       )}
 
     </div>

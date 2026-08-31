@@ -41,6 +41,24 @@ export interface SubscriptionPromoCampaign {
 
 export type SubscriptionStatus = 'active' | 'unpaid' | 'pending_verification' | 'expired';
 
+export interface SubscriptionPaymentRecord {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  invoiceNumber: string;
+  paymentDate: string; // ISO String
+  billingCycleStart: string;
+  billingCycleEnd: string;
+  planId: SubscriptionPlanId;
+  planName: string;
+  amountZar: number;
+  vatZar: number; // 15% South African VAT
+  paymentMethod: 'EFT' | 'Instant EFT' | 'Card' | 'Debit Order';
+  reference: string;
+  status: 'verified' | 'pending' | 'failed';
+  notes?: string;
+}
+
 export type SellerTrustTier = 'enterprise' | 'pro' | 'verified' | 'pending' | 'unverified';
 
 export interface SellerTrustInfo {

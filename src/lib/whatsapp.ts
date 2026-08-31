@@ -226,3 +226,215 @@ export function generateWhatsappBroadcastUrl(
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
+export interface GridWhatsappPayloadOptions {
+  seller: Seller;
+  items: InventoryItem[];
+  formatStyle?: 'catalog' | 'compact' | 'clearance' | 'stripping' | 'custom';
+  groupByCategory?: boolean;
+  includePrices?: boolean;
+  includeOem?: boolean;
+  includeCondition?: boolean;
+  includeLocation?: boolean;
+  includeContactDetails?: boolean;
+  customHeadline?: string;
+  customIntro?: string;
+  customOutro?: string;
+  promoNote?: string;
+}
+
+const CATEGORY_NAMES: Record<string, string> = {
+  heavy_equipment: '🚜 HEAVY EQUIPMENT & PLANT MACHINERY',
+  trucks: '🚚 TRUCKS & COMMERCIAL VEHICLES',
+  minibus_taxis: '🚐 MINIBUS & TAXI SPARES',
+  cars: '🚗 CARS, BAKKIES & PASSENGER SPARES'
+};
+
+/**
+ * Builds a formatted WhatsApp message payload representing the seller's inventory grid
+ * tailored for broadcasting to customer lists, trade groups, and client contacts.
+ */
+export function buildGridWhatsappPayload(options: GridWhatsappPayloadOptions): string {
+  const {
+    seller,
+    items,
+    formatStyle = 'catalog',
+    groupByCategory = true,
+    includePrices = true,
+    includeOem = true,
+    includeCondition = true,
+    includeLocation = true,
+    includeContactDetails = true,
+    customHeadline,
+    customIntro,
+    customOutro,
+    promoNote
+  } = options;
+
+  if (items.length === 0) {
+    return `*INVENTORY CATALOG | ${seller.companyName}*\n\nNo inventory items currently selected.`;
+  }
+
+  const location = `${seller.city}, ${seller.province}`;
+  const phone = seller.phone || seller.whatsapp;
+  const outOfOfficeBlock = formatOutOfOfficeNotice(seller);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      maximumFractionDigits: 0
+    }).format(price);
+  };
+
+  // Helper to format a single item
+  const renderItemLine = (item: InventoryItem, index?: number): string => {
+    const prefix = typeof index === 'number' ? `${index + 1}. ` : '• ';
+    const priceText = includePrices ? ` - *${formatPrice(item.priceZar)}*` : '';
+    const condText = includeCondition ? ` [${item.condition.replace(/_/g, ' ').toUpperCase()}]` : '';
+    const oemText = includeOem && item.partNumber ? ` (OEM: ${item.partNumber})` : '';
+
+    if (formatStyle === 'compact') {
+      return `${prefix}*${item.title}* (${item.make} ${item.model})${priceText}${oemText}`;
+    }
+
+    if (formatStyle === 'clearance') {
+      return `🔥 ${prefix}*${item.title}* | ${item.make} ${item.model}
+   💰 *Special Trade Price:* ${formatPrice(item.priceZar)}${condText}${oemText}`;
+    }
+
+    if (formatStyle === 'stripping') {
+      return `⚙️ ${prefix}*${item.title}*
+   🚜 ${item.make} ${item.model}${condText}${oemText}
+   💵 *Price:* ${formatPrice(item.priceZar)}`;
+    }
+
+    // Default: 'catalog'
+    return `${prefix}*${item.title}* (${item.make} ${item.model})
+   🏷️ Condition: ${item.condition.replace(/_/g, ' ').toUpperCase()}${oemText}
+   💰 Price: ${formatPrice(item.priceZar)}`;
+  };
+
+  // Build items block (grouped or continuous)
+  let itemsContent = '';
+
+  if (groupByCategory && formatStyle !== 'compact') {
+    const grouped: Record<string, InventoryItem[]> = {};
+    items.forEach(item => {
+      const cat = item.category || 'other';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(item);
+    });
+
+    const categoryBlocks: string[] = [];
+    Object.entries(grouped).forEach(([catKey, catItems]) => {
+      const catTitle = CATEGORY_NAMES[catKey] || `📦 ${catKey.toUpperCase()} SPARES`;
+      const catLines = catItems.map((item, idx) => renderItemLine(item, idx)).join('\n\n');
+      categoryBlocks.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n*${catTitle}* (${catItems.length})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${catLines}`);
+    });
+
+    itemsContent = categoryBlocks.join('\n\n');
+  } else {
+    itemsContent = items.map((item, idx) => renderItemLine(item, idx)).join(formatStyle === 'compact' ? '\n' : '\n\n');
+  }
+
+  // Header / Headline
+  let headline = '';
+  if (customHeadline?.trim()) {
+    headline = customHeadline.trim();
+  } else if (formatStyle === 'clearance') {
+    headline = `🔥 *CLEARANCE & STOCK SPECIALS | ${seller.companyName.toUpperCase()}* 🔥`;
+  } else if (formatStyle === 'stripping') {
+    headline = `🚨 *YARD STRIPPING & DISMANTLING CATALOG | ${seller.companyName.toUpperCase()}* 🚨`;
+  } else if (formatStyle === 'compact') {
+    headline = `📋 *CURRENT INVENTORY PRICE LIST | ${seller.companyName.toUpperCase()}*`;
+  } else {
+    headline = `📦 *CURRENT YARD INVENTORY CATALOG | ${seller.companyName.toUpperCase()}*`;
+  }
+
+  // Intro
+  let intro = '';
+  if (customIntro?.trim()) {
+    intro = customIntro.trim();
+  } else if (formatStyle === 'clearance') {
+    intro = `Good day Valued Clients & Fleet Managers,\n\nWe have marked down the following spares and machine components for immediate clearance from our yard in *${location}*:`;
+  } else if (formatStyle === 'stripping') {
+    intro = `Good day Trade Partners,\n\nBelow is our updated catalog of salvaged machinery, bakkie, truck, and heavy plant parts ready for immediate collection or courier dispatch:`;
+  } else if (formatStyle === 'compact') {
+    intro = `Hi everyone! Here is our quick-reference spares inventory list as of today (${items.length} parts available):`;
+  } else {
+    intro = `Good day Valued Trade Partners & Workshop Owners,\n\nPlease find our updated yard inventory list below. All items are authenticated direct yard stock ready for immediate dispatch or collection:`;
+  }
+
+  // Promo note section
+  const promoSection = promoNote?.trim()
+    ? `\n\n🎁 *TRADE DISCOUNT / SPECIAL OFFER:*\n${promoNote.trim()}`
+    : '';
+
+  // Outro & Contact
+  let outro = '';
+  if (customOutro?.trim()) {
+    outro = customOutro.trim();
+  } else {
+    outro = `⚡ *Reserve Parts:* Reply directly to this WhatsApp message with the item name or OEM part number.\n🚚 *Courier:* Nationwide delivery across South Africa & cross-border available.\n📍 *Yard Address:* ${seller.address ? `${seller.address}, ` : ''}${location}`;
+  }
+
+  let contactBlock = '';
+  if (includeContactDetails) {
+    contactBlock = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📞 *Direct Sales Counter / WhatsApp:* ${phone}\n🏢 *Yard:* ${seller.companyName}\n📍 *Location:* ${location}${outOfOfficeBlock}`;
+  }
+
+  return `${headline}
+
+${intro}
+
+${itemsContent}${promoSection}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${outro}${contactBlock}`;
+}
+
+/**
+ * Splits a long payload into chunks <= maxChunkLength without breaking lines mid-item.
+ */
+export function splitWhatsappPayloadIntoChunks(payload: string, maxChunkLength = 3200): string[] {
+  if (payload.length <= maxChunkLength) return [payload];
+
+  const lines = payload.split('\n');
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  for (const line of lines) {
+    if ((currentChunk + '\n' + line).length > maxChunkLength) {
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      // If a single line exceeds max, push it directly
+      if (line.length > maxChunkLength) {
+        chunks.push(line);
+        continue;
+      }
+    }
+    currentChunk = currentChunk ? currentChunk + '\n' + line : line;
+  }
+
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks.map((chunk, idx, arr) => {
+    if (arr.length > 1) {
+      return `[PART ${idx + 1} OF ${arr.length}]\n\n${chunk}`;
+    }
+    return chunk;
+  });
+}
+
+/**
+ * Generates an open WhatsApp URL without recipient so user can select contacts or groups
+ */
+export function generateGenericWhatsappShareUrl(message: string): string {
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+}
+
+

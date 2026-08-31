@@ -53,6 +53,7 @@ interface WhatsappBroadcastToolProps {
   seller: Seller;
   sellerListings: InventoryItem[];
   onOpenInventoryTab?: () => void;
+  onOpenExportGridModal?: () => void;
 }
 
 // Sample South African trade buyer database for one-click initial demo
@@ -104,7 +105,8 @@ const SAMPLE_BUYERS: Omit<CustomerContact, 'id' | 'createdAt'>[] = [
 export const WhatsappBroadcastTool: React.FC<WhatsappBroadcastToolProps> = ({
   seller,
   sellerListings,
-  onOpenInventoryTab
+  onOpenInventoryTab,
+  onOpenExportGridModal
 }) => {
   // Storage Keys
   const contactsStorageKey = `partsmart_seller_contacts_${seller.id}`;
@@ -535,6 +537,19 @@ Reply directly to reserve parts or arrange courier delivery!`
               <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
                 Notify your direct customer network, fleet managers, and trade mechanics via personalized WhatsApp messages whenever newly stripped vehicles, excavator parts, or engine arrivals land in your yard.
               </p>
+
+              {onOpenExportGridModal && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={onOpenExportGridModal}
+                    className="px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Export Entire Inventory Grid as WhatsApp Catalogue Payload</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
