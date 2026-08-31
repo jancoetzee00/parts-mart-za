@@ -392,6 +392,27 @@ export const SearchEngineModal: React.FC<SearchEngineModalProps> = ({
               <span>Commercial Trucks</span>
             </button>
 
+            {/* Minibus / Taxi */}
+            <button
+              onClick={() => {
+                setSelectedCategory('minibus_taxis');
+                setSelectedSubcategory('All');
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all cursor-pointer ${
+                selectedCategory === 'minibus_taxis'
+                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  : 'bg-slate-950 text-slate-300 hover:text-white border border-slate-800'
+              }`}
+            >
+              <img
+                src={CATEGORY_VISUALS.minibus_taxis.image}
+                alt="Minibus Taxi"
+                referrerPolicy="no-referrer"
+                className="w-4 h-4 rounded-full object-cover shrink-0 border border-slate-700"
+              />
+              <span>Minibus / Taxi</span>
+            </button>
+
             {/* Cars & Bakkies */}
             <button
               onClick={() => {

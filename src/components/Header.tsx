@@ -3,6 +3,7 @@ import {
   Wrench,
   Truck,
   Car,
+  Bus,
   HardHat,
   Lock,
   Building2,
@@ -317,6 +318,19 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
+              id="tab-cat-minibus"
+              onClick={() => handleCategorySelect('minibus_taxis')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                filter.category === 'minibus_taxis' && !filter.onlyFavorites
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <Bus className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Minibus / Taxi</span>
+            </button>
+
+            <button
               id="tab-cat-cars"
               onClick={() => handleCategorySelect('cars')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
@@ -379,7 +393,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Category Grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button
               onClick={() => {
                 handleCategorySelect('all');
@@ -391,7 +405,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60'
               }`}
             >
-              All Machinery
+              All Spares
             </button>
             <button
               onClick={() => {
@@ -404,7 +418,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60'
               }`}
             >
-              <HardHat className="w-3.5 h-3.5" /> Heavy Spares
+              <HardHat className="w-3.5 h-3.5" /> Heavy Plant
             </button>
             <button
               onClick={() => {
@@ -421,10 +435,23 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             <button
               onClick={() => {
-                handleCategorySelect('cars');
+                handleCategorySelect('minibus_taxis');
                 setIsMobileMenuOpen(false);
               }}
               className={`h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                filter.category === 'minibus_taxis'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60'
+              }`}
+            >
+              <Bus className="w-3.5 h-3.5" /> Minibus / Taxi
+            </button>
+            <button
+              onClick={() => {
+                handleCategorySelect('cars');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors col-span-2 sm:col-span-1 ${
                 filter.category === 'cars'
                   ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                   : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/60'

@@ -121,3 +121,108 @@ Thank you!${outOfOfficeBlock}`;
 
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
+
+/**
+ * Builds custom WhatsApp broadcast message text for new inventory arrivals
+ */
+export function buildInventoryBroadcastText(
+  seller: Seller,
+  items: InventoryItem[],
+  customerName?: string,
+  templateId: 'new_arrivals' | 'stripping_alert' | 'trade_wholesale' | 'custom' = 'new_arrivals',
+  customMessageTemplate?: string,
+  promoNote?: string
+): string {
+  const companyName = seller.companyName;
+  const location = `${seller.city}, ${seller.province}`;
+  const phone = seller.phone || seller.whatsapp;
+  const outOfOfficeBlock = formatOutOfOfficeNotice(seller);
+  const greeting = customerName?.trim() ? `Hi ${customerName.trim()}` : `Hello`;
+
+  // Format the item list
+  const formattedItemsList = items.map((item, idx) => {
+    const formattedPrice = new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: 'ZAR',
+      maximumFractionDigits: 0
+    }).format(item.priceZar);
+
+    const conditionTag = item.condition.replace(/_/g, ' ').toUpperCase();
+    const partNo = item.partNumber ? ` [OEM: ${item.partNumber}]` : '';
+
+    return `${idx + 1}. *${item.title}* (${item.make} ${item.model})
+   🏷️ ${conditionTag}${partNo}
+   💰 Price: ${formattedPrice}`;
+  }).join('\n\n');
+
+  const promoSection = promoNote?.trim() ? `\n\n🎁 *Special VIP Deal:* ${promoNote.trim()}` : '';
+
+  if (templateId === 'custom' && customMessageTemplate?.trim()) {
+    let replaced = customMessageTemplate
+      .replace(/{CustomerName}/g, customerName?.trim() || 'Valued Customer')
+      .replace(/{YardName}/g, companyName)
+      .replace(/{Location}/g, location)
+      .replace(/{Phone}/g, phone)
+      .replace(/{InventoryList}/g, formattedItemsList)
+      .replace(/{PromoNote}/g, promoNote?.trim() || '');
+    return `${replaced}${outOfOfficeBlock}`;
+  }
+
+  if (templateId === 'stripping_alert') {
+    const primaryItem = items[0];
+    const headerTitle = primaryItem ? `${primaryItem.make} ${primaryItem.model}` : 'New Commercial Vehicle';
+    return `🚨 *NOW STRIPPING FOR SPARES | ${companyName}*
+
+${greeting},
+
+We have just landed a *${headerTitle}* in our yard for stripping! All major components are currently being tested and cataloged:
+
+${formattedItemsList}${promoSection}
+
+📍 *Yard Location:* ${location}
+📞 *Direct Sales Line / WhatsApp:* ${phone}
+
+⚡ *First come, first served on high-demand parts.* Reply directly to this WhatsApp message to reserve parts or arrange courier delivery across SA.${outOfOfficeBlock}`;
+  }
+
+  if (templateId === 'trade_wholesale') {
+    return `📦 *EXCLUSIVE TRADE & FLEET ARRIVALS | ${companyName}*
+
+${greeting},
+
+Here are our latest fresh stock arrivals available for immediate dispatch at wholesale trade pricing:
+
+${formattedItemsList}${promoSection}
+
+📍 *Scrap Yard / Depot:* ${location}
+💬 *Order Line:* ${phone}
+
+Reply with the part number or item name to confirm availability and lock in your trade order.${outOfOfficeBlock}`;
+  }
+
+  // Default: new_arrivals
+  return `🆕 *NEW INVENTORY ARRIVALS | ${companyName}*
+
+${greeting},
+
+We have just added new spares and machinery components to our yard inventory that may fit your fleet or workshop requirements:
+
+${formattedItemsList}${promoSection}
+
+📍 *Yard Location:* ${location}
+🚚 *Nationwide Courier & Local Collection Available*
+
+Reply directly to this WhatsApp message to inquire or arrange inspection.${outOfOfficeBlock}`;
+}
+
+/**
+ * Generates a wa.me direct link for a specific customer with pre-filled broadcast text
+ */
+export function generateWhatsappBroadcastUrl(
+  customerPhone: string,
+  message: string
+): string {
+  const cleanPhone = formatWhatsappPhoneNumber(customerPhone);
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+}
+

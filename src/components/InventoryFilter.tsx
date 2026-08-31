@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, RotateCcw, MapPin, Tag, ArrowUpDown, HardHat, Truck, Car, Heart } from 'lucide-react';
+import { Filter, RotateCcw, MapPin, Tag, ArrowUpDown, HardHat, Truck, Car, Bus, Heart } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
 import { CategoryType, PartCondition, SAProvince, FilterState } from '../types';
@@ -72,6 +72,17 @@ export const InventoryFilter: React.FC = () => {
             >
               <Truck className="w-3.5 h-3.5" />
               Trucks
+            </button>
+            <button
+              onClick={() => setFilter({ category: 'minibus_taxis', subcategory: 'All', onlyFavorites: false })}
+              className={`px-3 py-2 sm:py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer min-h-[36px] ${
+                filter.category === 'minibus_taxis' && !filter.onlyFavorites
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Bus className="w-3.5 h-3.5" />
+              Minibus / Taxi
             </button>
             <button
               onClick={() => setFilter({ category: 'cars', subcategory: 'All', onlyFavorites: false })}

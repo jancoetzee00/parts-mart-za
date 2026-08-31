@@ -1185,6 +1185,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
                       <option value="all">All Machinery & Vehicle Categories</option>
                       <option value="heavy_equipment">Heavy Equipment & Earthmoving</option>
                       <option value="trucks">Trucks & Commercial</option>
+                      <option value="minibus_taxis">Minibus / Taxi</option>
                       <option value="cars">Passenger Cars & Bakkies</option>
                     </select>
 

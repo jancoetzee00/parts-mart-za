@@ -6,6 +6,7 @@ import {
   HardHat,
   Truck,
   Car,
+  Bus,
   MessageSquare,
   Sparkles,
   AlertCircle,
@@ -58,6 +59,8 @@ export const InventoryCard: React.FC<InventoryCardProps> = ({ item, onSelect }) 
         return <HardHat className="w-3.5 h-3.5 text-amber-500" />;
       case 'trucks':
         return <Truck className="w-3.5 h-3.5 text-blue-500" />;
+      case 'minibus_taxis':
+        return <Bus className="w-3.5 h-3.5 text-cyan-400" />;
       case 'cars':
         return <Car className="w-3.5 h-3.5 text-emerald-500" />;
       default:

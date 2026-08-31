@@ -11,6 +11,7 @@ import {
   HardHat,
   Truck,
   Car,
+  Bus,
   ExternalLink,
   Search,
   ArrowUpDown,
@@ -125,6 +126,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         return <HardHat className="w-3.5 h-3.5 text-amber-500" />;
       case 'trucks':
         return <Truck className="w-3.5 h-3.5 text-blue-500" />;
+      case 'minibus_taxis':
+        return <Bus className="w-3.5 h-3.5 text-cyan-400" />;
       case 'cars':
         return <Car className="w-3.5 h-3.5 text-emerald-500" />;
       default:
@@ -316,6 +319,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   <option value="all">All Categories</option>
                   <option value="heavy_equipment">Heavy Equipment</option>
                   <option value="trucks">Commercial Trucks</option>
+                  <option value="minibus_taxis">Minibus / Taxi</option>
                   <option value="cars">Bakkies & Cars</option>
                 </select>
               </div>
@@ -541,6 +545,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   >
                     <Truck className="w-3.5 h-3.5 text-blue-400" />
                     <span>Commercial Truck Parts</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleQuickExploreCategory('minibus_taxis')}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-750 border border-cyan-500/30 hover:border-cyan-400 text-cyan-300 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Bus className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Minibus & Taxi Spares</span>
                   </button>
 
                   <button

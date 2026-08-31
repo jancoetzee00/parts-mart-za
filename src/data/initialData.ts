@@ -401,6 +401,101 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
     views: 215,
     createdAt: '2026-08-07T12:00:00.000Z',
     updatedAt: '2026-08-07T12:00:00.000Z'
+  },
+  {
+    id: 'item-108',
+    sellerId: 'seller-3',
+    sellerName: 'Durban Auto Dismantlers & Bakkie Spares',
+    sellerPhone: '+27 71 884 9201',
+    sellerWhatsapp: '27718849201',
+    title: 'Toyota Quantum 2.7 VVTi (2TR-FE) Complete Engine Assembly',
+    category: 'minibus_taxis',
+    subcategory: 'Engines & Cylinder Heads',
+    make: 'Toyota Quantum',
+    model: 'Ses\'fikile / Quantum 2.7 VVTi',
+    year: 2021,
+    partNumber: 'TOY-2TR-FE-7729',
+    condition: 'reconditioned',
+    priceZar: 36500,
+    province: 'KwaZulu-Natal',
+    city: 'Durban Central',
+    description: 'Fully reconditioned 2TR-FE 2.7L petrol engine for Toyota Quantum Ses\'fikile commuter taxi. Complete with intake manifold, fuel injectors, timing chain kit, and alternator. Bench tested with compression certificate.',
+    specifications: {
+      'Engine Code': '2TR-FE 2.7 Petrol',
+      'Power Output': '111 kW / 151 HP',
+      'Fitment': 'Toyota Quantum Ses\'fikile (2008 - 2023)',
+      'Warranty': '3 Months / 15,000 km'
+    },
+    images: [
+      'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=800&q=80'
+    ],
+    isFeatured: true,
+    views: 480,
+    createdAt: '2026-08-08T08:30:00.000Z',
+    updatedAt: '2026-08-08T08:30:00.000Z'
+  },
+  {
+    id: 'item-109',
+    sellerId: 'seller-3',
+    sellerName: 'Durban Auto Dismantlers & Bakkie Spares',
+    sellerPhone: '+27 71 884 9201',
+    sellerWhatsapp: '27718849201',
+    title: 'Toyota Quantum / Ses\'fikile Complete Sliding Door Assembly (Left Hand)',
+    category: 'minibus_taxis',
+    subcategory: 'Sliding Doors & Body Panels',
+    make: 'Toyota Quantum',
+    model: 'Ses\'fikile 14 / 16 Seater',
+    year: 2022,
+    partNumber: 'TOY-QTM-SLD-LH',
+    condition: 'used',
+    priceZar: 6800,
+    province: 'KwaZulu-Natal',
+    city: 'Durban',
+    description: 'Original OEM Toyota Quantum left-hand sliding door complete with tinted sliding window, exterior handle, lower and upper roller guides, and interior locking latch.',
+    specifications: {
+      'Position': 'Left Hand Sliding Door',
+      'Color': 'Factory Gloss White (058)',
+      'Includes': 'Glass, Rollers, Handle & Mechanism',
+      'Fitment': 'Quantum / Ses\'fikile 2005 - 2023'
+    },
+    images: [
+      'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80'
+    ],
+    isFeatured: false,
+    views: 310,
+    createdAt: '2026-08-08T11:00:00.000Z',
+    updatedAt: '2026-08-08T11:00:00.000Z'
+  },
+  {
+    id: 'item-110',
+    sellerId: 'seller-3',
+    sellerName: 'Durban Auto Dismantlers & Bakkie Spares',
+    sellerPhone: '+27 71 884 9201',
+    sellerWhatsapp: '27718849201',
+    title: 'Nissan NV350 Impendulo 2.5 5-Speed Manual Gearbox',
+    category: 'minibus_taxis',
+    subcategory: 'Gearboxes & Transmissions',
+    make: 'Nissan',
+    model: 'NV350 Impendulo 2.5',
+    year: 2019,
+    partNumber: 'NIS-NV350-GBX-5S',
+    condition: 'reconditioned',
+    priceZar: 18500,
+    province: 'KwaZulu-Natal',
+    city: 'Pinetown / Durban',
+    description: 'Reconditioned 5-speed manual gearbox for Nissan NV350 Impendulo taxi. New synchros, bearings, and input shaft seals installed. Direct bolt-on replacement with 30-day warranty.',
+    specifications: {
+      'Transmission': '5-Speed Manual',
+      'Engine Fitment': 'QR25DE / YD25DDTi',
+      'Warranty': '30 Days Exchange'
+    },
+    images: [
+      'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=800&q=80'
+    ],
+    isFeatured: false,
+    views: 245,
+    createdAt: '2026-08-09T09:15:00.000Z',
+    updatedAt: '2026-08-09T09:15:00.000Z'
   }
 ];
 
@@ -414,6 +509,19 @@ export const SUBCATEGORIES: Record<CategoryType, string[]> = {
     'Brakes & Hydraulics',
     'Electrical & ECUs',
     'Interior & Seats'
+  ],
+  minibus_taxis: [
+    'All Minibus Parts',
+    'Engines & Cylinder Heads',
+    'Gearboxes & Transmissions',
+    'Differentials & Axles',
+    'Sliding Doors & Body Panels',
+    'Braking & Suspension',
+    'Steering & Propshafts',
+    'Seats & Interior Trim',
+    'Cooling & Radiators',
+    'Electrical & Starters',
+    'Stripping Taxis for Spares'
   ],
   trucks: [
     'All Truck Parts',

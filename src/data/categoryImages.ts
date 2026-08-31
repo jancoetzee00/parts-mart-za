@@ -65,6 +65,21 @@ export const CATEGORY_VISUALS: Record<CategoryType, CategoryVisualMeta> = {
       border: 'border-emerald-500/40',
       badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
     }
+  },
+  minibus_taxis: {
+    id: 'minibus_taxis',
+    title: 'Minibus / Taxi Spares',
+    shortTitle: 'Minibus / Taxi',
+    subtitle: 'Quantum, Ses\'fikile, HiAce, NV350, King Long',
+    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80',
+    alt: 'South African commuter minibus taxi van parts and spares warehouse',
+    popularMakes: ['Toyota Quantum', 'Toyota HiAce', 'Ses\'fikile', 'Nissan NV350 Impendulo', 'King Long', 'Jinbei', 'Mercedes Sprinter', 'Iveco Daily'],
+    sampleParts: ['2TR-FE & 2KD Engines', '5-Speed Manual Gearboxes', 'Sliding Doors & Glass', 'Rear Differentials', 'Front Hubs & Brake Discs', 'Steering Columns'],
+    colorTheme: {
+      accent: 'text-cyan-400',
+      border: 'border-cyan-500/40',
+      badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+    }
   }
 };
 

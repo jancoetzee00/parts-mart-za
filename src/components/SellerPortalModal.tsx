@@ -54,6 +54,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, PROVINCES_LIST, SUBCATEGORIES } from '../data/initialData';
 import { TierSavingsCalculator } from './TierSavingsCalculator';
+import { WhatsappBroadcastTool } from './WhatsappBroadcastTool';
 import { generateWhatsappInquiryUrl, buildWhatsappInquiryText } from '../lib/whatsapp';
 import {
   InventoryItem,
@@ -95,7 +96,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
     deleteInventoryItem
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'broadcast' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
   const [subscriptionSubView, setSubscriptionSubView] = useState<'calculator' | 'matrix'>('calculator');
   
   // Notice & notification state
@@ -1169,6 +1170,23 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
               My Inventory ({sellerListings.length})
             </button>
 
+            <button
+              id="btn-seller-tab-broadcast"
+              onClick={() => setActiveTab('broadcast')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === 'broadcast'
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-slate-950 shadow-md font-black'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Send WhatsApp Bulk Arrival Broadcasts to Customer Network"
+            >
+              <Send className="w-3.5 h-3.5 text-emerald-400" />
+              <span>WhatsApp Broadcasts</span>
+              <span className="bg-emerald-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                NEW
+              </span>
+            </button>
+
             {onOpenSpecialsCompetitions && (
               <button
                 onClick={() => {
@@ -1376,6 +1394,16 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('broadcast')}
+                        className="px-3.5 py-2.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        title="Broadcast New Inventory Arrivals via WhatsApp to Customer Network"
+                      >
+                        <Send className="w-4 h-4 text-emerald-400" />
+                        <span>WhatsApp Arrival Broadcast</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -2136,6 +2164,15 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             </div>
           )}
 
+          {/* TAB: WHATSAPP BULK ARRIVAL BROADCAST TOOL */}
+          {activeTab === 'broadcast' && activeSeller && (
+            <WhatsappBroadcastTool
+              seller={activeSeller}
+              sellerListings={sellerListings}
+              onOpenInventoryTab={() => setActiveTab('inventory')}
+            />
+          )}
+
           {/* TAB 3: SWITCH SELLER ACCOUNT */}
           {activeTab === 'switch_account' && (
             <div className="space-y-4">
@@ -2412,6 +2449,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   >
                     <option value="heavy_equipment">Heavy Equipment</option>
                     <option value="trucks">Trucks & Commercial</option>
+                    <option value="minibus_taxis">Minibus / Taxi</option>
                     <option value="cars">Cars & Bakkies</option>
                   </select>
                 </div>

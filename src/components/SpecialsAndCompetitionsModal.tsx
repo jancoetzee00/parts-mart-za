@@ -424,7 +424,7 @@ export const SpecialsAndCompetitionsModal: React.FC<SpecialsAndCompetitionsModal
                   <span className="text-xs text-slate-400 font-semibold mr-1 flex items-center gap-1">
                     <Filter className="w-3 h-3 text-amber-400" /> Filter:
                   </span>
-                  {(['all', 'heavy_equipment', 'trucks', 'cars'] as const).map(cat => (
+                  {(['all', 'heavy_equipment', 'trucks', 'minibus_taxis', 'cars'] as const).map(cat => (
                     <button
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
@@ -440,6 +440,8 @@ export const SpecialsAndCompetitionsModal: React.FC<SpecialsAndCompetitionsModal
                         ? 'Heavy Equipment'
                         : cat === 'trucks'
                         ? 'Truck Parts'
+                        : cat === 'minibus_taxis'
+                        ? 'Minibus / Taxi'
                         : 'Car & Bakkie Spares'}
                     </button>
                   ))}
@@ -1006,6 +1008,7 @@ export const SpecialsAndCompetitionsModal: React.FC<SpecialsAndCompetitionsModal
                     >
                       <option value="heavy_equipment">Heavy Machinery & Plant</option>
                       <option value="trucks">Commercial Trucks & Trailers</option>
+                      <option value="minibus_taxis">Minibus / Taxi Spares</option>
                       <option value="cars">Cars & Bakkies</option>
                     </select>
                   </div>

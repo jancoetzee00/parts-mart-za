@@ -1,4 +1,4 @@
-export type CategoryType = 'cars' | 'trucks' | 'heavy_equipment';
+export type CategoryType = 'cars' | 'minibus_taxis' | 'trucks' | 'heavy_equipment';
 
 export type PartCondition = 'new' | 'reconditioned' | 'used' | 'stripping_spares';
 
@@ -217,6 +217,28 @@ export interface CompetitionEntry {
   proofMetrics?: string;
   submittedAt: string;
   status: 'pending' | 'approved' | 'winner';
+}
+
+export interface CustomerContact {
+  id: string;
+  name: string;
+  phone: string;
+  company?: string;
+  interestTag?: string; // e.g. 'Heavy Machinery', 'Trucks', 'Toyota Spares', 'Hydraulics', 'General'
+  notes?: string;
+  lastContactedAt?: string;
+  createdAt: string;
+}
+
+export interface BroadcastHistoryItem {
+  id: string;
+  sellerId: string;
+  createdAt: string;
+  title: string;
+  recipientCount: number;
+  itemIds: string[];
+  templateUsed: string;
+  messageSnippet: string;
 }
 
 export interface FilterState {

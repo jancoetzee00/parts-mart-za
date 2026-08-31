@@ -5,6 +5,7 @@ import {
   HardHat,
   Truck,
   Car,
+  Bus,
   ShieldCheck,
   CreditCard,
   Zap,
@@ -58,6 +59,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const categoryCounts = {
     heavy_equipment: inventory.filter(i => i.category === 'heavy_equipment').length,
     trucks: inventory.filter(i => i.category === 'trucks').length,
+    minibus_taxis: inventory.filter(i => i.category === 'minibus_taxis').length,
     cars: inventory.filter(i => i.category === 'cars').length
   };
 
@@ -366,7 +368,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
                 
                 {/* Heavy Equipment */}
                 <div
@@ -460,6 +462,54 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                     </div>
                     <p className="text-[10px] text-slate-300 line-clamp-1 font-medium">
                       Scania • Volvo • Isuzu
+                    </p>
+                  </div>
+                </div>
+
+                {/* Minibus / Taxi */}
+                <div
+                  onClick={() => setFilter({ category: 'minibus_taxis', subcategory: 'All' })}
+                  className={`group relative overflow-hidden rounded-2xl border transition-all cursor-pointer p-3 flex flex-col justify-between min-h-[135px] ${
+                    filter.category === 'minibus_taxis'
+                      ? 'border-cyan-500 bg-slate-900 ring-2 ring-cyan-500/40 shadow-lg shadow-cyan-500/10'
+                      : 'border-slate-800 bg-slate-900/90 hover:border-slate-700 hover:bg-slate-850'
+                  }`}
+                >
+                  {/* Category Image with Gradient Overlay */}
+                  <div className="absolute inset-0 z-0 overflow-hidden">
+                    <img
+                      src={CATEGORY_VISUALS.minibus_taxis.image}
+                      alt={CATEGORY_VISUALS.minibus_taxis.alt}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover opacity-35 group-hover:opacity-50 group-hover:scale-105 transition-all duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/40" />
+                  </div>
+
+                  {/* Top Bar: Icon + Count Badge */}
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                      <Bus className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="bg-slate-950/80 backdrop-blur-sm border border-cyan-500/30 text-cyan-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+                      {categoryCounts.minibus_taxis} Parts
+                    </span>
+                  </div>
+
+                  {/* Bottom Info: Title & Makes */}
+                  <div className="relative z-10 space-y-0.5 pt-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-xs text-white group-hover:text-cyan-300 transition-colors">
+                        Minibus / Taxi
+                      </h3>
+                      {filter.category === 'minibus_taxis' && (
+                        <span className="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-300 line-clamp-1 font-medium">
+                      Quantum • HiAce • NV350
                     </p>
                   </div>
                 </div>
