@@ -73,20 +73,20 @@ export const SellerTrustBadge: React.FC<SellerTrustBadgeProps> = ({
           type="button"
           onClick={handleClick}
           title={`Trust Level: ${trustInfo.badgeTitle} - Click for verification details`}
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider backdrop-blur-md border shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer z-10 ${
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider backdrop-blur-md border shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer z-10 ${
             trustInfo.tier === 'enterprise'
-              ? 'bg-slate-950/85 text-amber-300 border-amber-500/50 shadow-amber-950/50'
+              ? 'bg-slate-950/90 text-amber-300 border-amber-400/60 shadow-amber-950/60 ring-1 ring-amber-400/30 hover:border-amber-300 hover:text-amber-200'
               : trustInfo.tier === 'pro'
-              ? 'bg-slate-950/85 text-blue-300 border-blue-500/50 shadow-blue-950/50'
+              ? 'bg-slate-950/90 text-blue-300 border-blue-400/60 shadow-blue-950/60 ring-1 ring-blue-400/30 hover:border-blue-300 hover:text-blue-200'
               : trustInfo.tier === 'verified'
-              ? 'bg-slate-950/85 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50'
+              ? 'bg-slate-950/90 text-emerald-300 border-emerald-500/50 shadow-emerald-950/50 ring-1 ring-emerald-500/25 hover:border-emerald-400 hover:text-emerald-200'
               : trustInfo.tier === 'pending'
-              ? 'bg-slate-950/85 text-amber-300 border-amber-500/40'
+              ? 'bg-slate-950/90 text-amber-300 border-amber-500/40'
               : 'bg-slate-950/85 text-slate-400 border-slate-700/60'
           } ${className}`}
         >
           {renderIcon('w-3.5 h-3.5')}
-          <span className="truncate">{trustInfo.badgeLabel}</span>
+          <span className="truncate font-black">{trustInfo.badgeLabel}</span>
         </button>
 
         {isTrustModalOpen && (
@@ -108,20 +108,20 @@ export const SellerTrustBadge: React.FC<SellerTrustBadgeProps> = ({
           type="button"
           onClick={handleClick}
           title={`${trustInfo.badgeTitle}: Click to view yard verification`}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all hover:opacity-90 active:scale-95 cursor-pointer ${
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all hover:opacity-90 active:scale-95 cursor-pointer ${
             trustInfo.tier === 'enterprise'
-              ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
+              ? 'bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-yellow-500/20 text-amber-300 border-amber-400/50 hover:border-amber-300 shadow-xs'
               : trustInfo.tier === 'pro'
-              ? 'bg-blue-500/15 text-blue-300 border-blue-500/40 hover:bg-blue-500/25'
+              ? 'bg-gradient-to-r from-blue-500/20 via-indigo-500/15 to-blue-500/20 text-blue-300 border-blue-400/50 hover:border-blue-300 shadow-xs'
               : trustInfo.tier === 'verified'
-              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35 hover:bg-emerald-500/25'
+              ? 'bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:border-emerald-400 shadow-xs'
               : trustInfo.tier === 'pending'
               ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
               : 'bg-slate-800 text-slate-400 border-slate-700'
           } ${className}`}
         >
           {renderIcon('w-3 h-3')}
-          <span className="truncate">{trustInfo.shortBadgeLabel}</span>
+          <span className="truncate font-bold">{trustInfo.shortBadgeLabel}</span>
         </button>
 
         {isTrustModalOpen && (
@@ -163,7 +163,7 @@ export const SellerTrustBadge: React.FC<SellerTrustBadgeProps> = ({
               {/* Verified Mini Tick Badge on Avatar */}
               {trustInfo.isVerified && (
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-slate-900 flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <div className={`w-2 h-2 rounded-full ${trustInfo.tier === 'enterprise' || trustInfo.tier === 'pro' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                 </div>
               )}
             </div>
@@ -179,13 +179,13 @@ export const SellerTrustBadge: React.FC<SellerTrustBadgeProps> = ({
             type="button"
             onClick={handleClick}
             title={`${trustInfo.badgeTitle} • Click for Trust Guarantee`}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 ${
               trustInfo.tier === 'enterprise'
-                ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:border-amber-400 shadow-xs'
+                ? 'bg-amber-500/15 text-amber-300 border-amber-400/50 hover:border-amber-300 shadow-xs'
                 : trustInfo.tier === 'pro'
-                ? 'bg-blue-500/15 text-blue-300 border-blue-500/40 hover:border-blue-400 shadow-xs'
+                ? 'bg-blue-500/15 text-blue-300 border-blue-400/50 hover:border-blue-300 shadow-xs'
                 : trustInfo.tier === 'verified'
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/35 hover:border-emerald-400'
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/45 hover:border-emerald-400 shadow-xs'
                 : trustInfo.tier === 'pending'
                 ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                 : 'bg-slate-800 text-slate-400 border-slate-700'

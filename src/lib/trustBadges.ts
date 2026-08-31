@@ -17,61 +17,63 @@ export function getSellerTrustInfo(
   const isCipc = seller?.isCipcVerified ?? true;
   const isPhysical = seller?.isPhysicalYardVerified ?? true;
 
-  // 1. Enterprise Dealer / Unlimited Tier
+  // 1. Enterprise Dealer / Unlimited Tier (Premium Seller)
   if (status === 'active' && (planId === 'enterprise' || planId === 'dealer_unlimited')) {
     return {
       tier: 'enterprise',
-      badgeLabel: 'Enterprise Dealer',
-      shortBadgeLabel: 'Enterprise',
-      badgeTitle: 'Verified Enterprise Dealer',
+      badgeLabel: 'Premium Seller',
+      shortBadgeLabel: 'Premium Seller',
+      badgeTitle: 'Verified Premium Seller (Enterprise)',
       iconName: 'crown',
       themeColor: {
         bg: 'bg-amber-950/40',
-        border: 'border-amber-400/50 hover:border-amber-300',
+        border: 'border-amber-400/60 hover:border-amber-300',
         text: 'text-amber-300',
-        badgeGradient: 'from-amber-500/25 via-yellow-500/20 to-amber-500/25',
-        pillBg: 'bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-yellow-500/20 text-amber-200 border-amber-400/60 shadow-amber-950/40',
+        badgeGradient: 'from-amber-500/30 via-yellow-500/25 to-amber-500/30',
+        pillBg: 'bg-gradient-to-r from-amber-500/25 via-amber-400/20 to-yellow-500/25 text-amber-200 border-amber-400/70 shadow-amber-950/50',
         iconColor: 'text-amber-400',
-        glow: 'shadow-amber-500/10'
+        glow: 'shadow-amber-500/20'
       },
       tierRank: 4,
       isVerified: true,
-      tagline: 'Top-Tier Commercial Yard & Fleet Dismantler',
-      description: 'Highest trust tier on Part-Smart ZA. High-capacity commercial yard with bulk inventory, vetted premises, and dedicated sales staff.',
+      tagline: 'Active Premium Subscriber • Commercial Fleet & Plant Dismantler',
+      description: 'Highest trust tier on Part-Smart ZA. Active monthly Enterprise subscriber with direct yard inventory, verified premises, and dedicated sales support.',
       trustPerks: [
-        'Verified Premier Enterprise Dealer',
-        isCipc ? 'CIPC Registered Auto / Machinery Business' : 'Commercial Scrap Yard Operator',
+        'Active Monthly Premium Subscription',
+        'Verified Premier Enterprise Scrapyard Partner',
+        isCipc ? 'CIPC Registered South African Business' : 'Commercial Scrap Yard Operator',
         isPhysical ? 'Audited Physical Yard & Workshop Premises' : 'Verified Direct Yard Stock',
         'Direct WhatsApp & Instant Phone Counter Access',
         'Bulk Spares & Commercial Fleet Dismantling Specialist'
       ],
       responseTime: '< 15 mins average WhatsApp reply',
-      guaranteeNotice: '100% direct yard stock with zero broker markups. Buy direct from verified enterprise dealers.'
+      guaranteeNotice: '100% direct yard stock with zero broker markups. Buy direct from verified active monthly subscribers.'
     };
   }
 
-  // 2. Pro Verified Yard Tier
+  // 2. Pro Verified Yard Tier (Premium Seller)
   if (status === 'active' && planId === 'pro') {
     return {
       tier: 'pro',
-      badgeLabel: 'Pro Verified Yard',
-      shortBadgeLabel: 'Pro Yard',
-      badgeTitle: 'Pro Verified Scrapyard',
-      iconName: 'shield-check',
+      badgeLabel: 'Premium Seller',
+      shortBadgeLabel: 'Premium Seller',
+      badgeTitle: 'Verified Premium Seller (Pro)',
+      iconName: 'crown',
       themeColor: {
         bg: 'bg-blue-950/40',
-        border: 'border-blue-400/50 hover:border-blue-300',
+        border: 'border-blue-400/60 hover:border-blue-300',
         text: 'text-blue-300',
-        badgeGradient: 'from-blue-500/25 via-indigo-500/20 to-blue-500/25',
-        pillBg: 'bg-gradient-to-r from-blue-500/20 via-indigo-500/15 to-blue-500/20 text-blue-200 border-blue-400/60 shadow-blue-950/40',
+        badgeGradient: 'from-blue-500/30 via-indigo-500/25 to-blue-500/30',
+        pillBg: 'bg-gradient-to-r from-blue-500/25 via-indigo-500/20 to-blue-500/25 text-blue-200 border-blue-400/70 shadow-blue-950/50',
         iconColor: 'text-blue-400',
-        glow: 'shadow-blue-500/10'
+        glow: 'shadow-blue-500/20'
       },
       tierRank: 3,
       isVerified: true,
-      tagline: 'Commercial Spares & Machinery Specialist',
-      description: 'Active Pro-tier member with high-priority search visibility, vetted contact channels, and authenticated scrap inventory.',
+      tagline: 'Active Premium Subscriber • Commercial Spares Specialist',
+      description: 'Active monthly Pro subscriber with priority search visibility, authenticated stock, and dedicated direct contact channels.',
       trustPerks: [
+        'Active Monthly Premium Subscription',
         'Pro-Tier Verified Scrap Yard Partner',
         'Direct Breaker Yard with Priority Inquiry Routing',
         'Specialised Commercial Truck, Plant or Auto Spares',
@@ -82,30 +84,31 @@ export function getSellerTrustInfo(
     };
   }
 
-  // 3. Basic / Starter Plan (Active Status)
+  // 3. Basic / Starter Plan (Active Status -> Active Subscriber)
   if (status === 'active') {
     return {
       tier: 'verified',
-      badgeLabel: 'Verified Yard',
-      shortBadgeLabel: 'Verified',
-      badgeTitle: 'Verified Active Scrap Yard',
+      badgeLabel: 'Active Subscriber',
+      shortBadgeLabel: 'Active Subscriber',
+      badgeTitle: 'Active Monthly Subscriber',
       iconName: 'check',
       themeColor: {
         bg: 'bg-emerald-950/40',
-        border: 'border-emerald-500/40 hover:border-emerald-400',
+        border: 'border-emerald-500/50 hover:border-emerald-400',
         text: 'text-emerald-300',
-        badgeGradient: 'from-emerald-500/20 via-teal-500/15 to-emerald-500/20',
-        pillBg: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/40 shadow-emerald-950/30',
+        badgeGradient: 'from-emerald-500/25 via-teal-500/20 to-emerald-500/25',
+        pillBg: 'bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-emerald-500/20 text-emerald-200 border-emerald-500/50 shadow-emerald-950/40',
         iconColor: 'text-emerald-400',
-        glow: 'shadow-emerald-500/10'
+        glow: 'shadow-emerald-500/15'
       },
       tierRank: 2,
       isVerified: true,
-      tagline: 'Registered Scrapyard Partner',
-      description: 'Active registered scrap yard on Part-Smart ZA with confirmed contact phone and direct WhatsApp counter routing.',
+      tagline: 'Active Monthly Subscriber • Registered Scrapyard Partner',
+      description: 'Active monthly subscriber on Part-Smart ZA with verified phone/WhatsApp sales desk and current paid subscription.',
       trustPerks: [
-        'Active Subscribed Scrap Yard',
+        'Active Monthly Scrapyard Subscription',
         'Direct Phone & WhatsApp Inquiry Channel',
+        'Verified Direct Yard Spares Pricing',
         'Local Provincial Scrap Dealer'
       ],
       responseTime: 'Standard trading hours reply',
