@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   InventoryItem,
   OwnerBankingDetails,
+  OwnerTaxInvoiceSettings,
   OwnerSettings,
   Seller,
   FilterState,
@@ -9,6 +10,7 @@ import {
   SubscriptionPlanId,
   SubscriptionPlan,
   SubscriptionPromoCampaign,
+  SubscriptionPaymentRecord,
   SellerSpecial,
   SellerCompetition,
   CompetitionEntry
@@ -63,6 +65,7 @@ interface AppContextType {
   logoutOwner: () => void;
   updateOwnerPassword: (newPass: string) => void;
   updateOwnerBankingDetails: (details: OwnerBankingDetails) => void;
+  updateOwnerTaxInvoiceSettings: (taxSettings: OwnerTaxInvoiceSettings) => void;
   updateOwnerWhatsappSettings: (autoReply: NonNullable<OwnerSettings['whatsappAutoReply']>) => void;
   updateSubscriptionPlans: (plans: SubscriptionPlan[]) => void;
   updateSingleSubscriptionPlan: (planId: SubscriptionPlanId, updates: Partial<SubscriptionPlan>) => void;
@@ -405,6 +408,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveOwnerSettingsDoc(newSettings);
   };
 
+  const updateOwnerTaxInvoiceSettings = (taxSettings: OwnerTaxInvoiceSettings) => {
+    const newSettings: OwnerSettings = {
+      ...ownerSettings,
+      taxInvoiceSettings: {
+        ...taxSettings,
+        updatedAt: new Date().toISOString()
+      }
+    };
+    setOwnerSettings(newSettings);
+    saveOwnerSettingsDoc(newSettings);
+  };
+
   const updateOwnerWhatsappSettings = (autoReply: NonNullable<OwnerSettings['whatsappAutoReply']>) => {
     const newSettings: OwnerSettings = {
       ...ownerSettings,
@@ -613,11 +628,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingSeller = sellers.find(s => s.id === sellerId);
     if (!existingSeller) return;
 
+    const targetDueDate = dueDate || existingSeller.subscriptionDueDate;
+
     const updatedSeller: Seller = {
       ...existingSeller,
       subscriptionStatus: status,
-      subscriptionDueDate: dueDate || existingSeller.subscriptionDueDate
+      subscriptionDueDate: targetDueDate
     };
+
+    // If activating and tax invoice settings are enabled, automatically generate and attach tax invoice
+    if (status === 'active') {
+      const taxConfig = ownerSettings.taxInvoiceSettings;
+      if (taxConfig?.enabled) {
+        try {
+          const pricing = getPlanEffectivePricing(existingSeller.planId);
+          const prefix = taxConfig.invoiceNumberPrefix || 'INV-PSZA-';
+          const seq = taxConfig.nextInvoiceSequence || 1050;
+          const invoiceNum = `${prefix}${seq}`;
+          const vatRate = taxConfig.vatRatePercent || 15;
+          const amount = pricing.effectivePrice;
+          const vatZar = Math.round((amount * vatRate / (100 + vatRate)) * 100) / 100;
+          
+          const newPayment: SubscriptionPaymentRecord = {
+            id: `pay-${existingSeller.id}-${Date.now()}`,
+            sellerId: existingSeller.id,
+            sellerName: existingSeller.companyName,
+            invoiceNumber: invoiceNum,
+            paymentDate: new Date().toISOString(),
+            billingCycleStart: new Date().toISOString(),
+            billingCycleEnd: targetDueDate,
+            planId: existingSeller.planId,
+            planName: pricing.name || 'Equipment Plan',
+            amountZar: amount,
+            vatZar: vatZar,
+            paymentMethod: 'Instant EFT',
+            reference: existingSeller.lastPaymentRef || `EFT-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'verified',
+            taxInvoiceAttached: taxConfig.autoAttachToEmail !== false,
+            emailDispatchedAt: new Date().toISOString(),
+            emailRecipient: existingSeller.email,
+            vatRatePercent: vatRate,
+            supplierVatNumber: taxConfig.vatRegistrationNumber,
+            notes: 'Automated SARS-compliant Tax/VAT Invoice issued upon payment verification & email confirmation.'
+          };
+
+          const storageKey = `part_smart_subscription_payments_${existingSeller.id}`;
+          const existingList: SubscriptionPaymentRecord[] = (() => {
+            try {
+              const raw = localStorage.getItem(storageKey);
+              return raw ? JSON.parse(raw) : [];
+            } catch {
+              return [];
+            }
+          })();
+
+          localStorage.setItem(storageKey, JSON.stringify([newPayment, ...existingList]));
+
+          // Increment invoice sequence
+          updateOwnerTaxInvoiceSettings({
+            ...taxConfig,
+            nextInvoiceSequence: seq + 1
+          });
+        } catch (err) {
+          console.warn('Error generating automated tax invoice:', err);
+        }
+      }
+    }
 
     setSellers(prev => prev.map(s => (s.id === sellerId ? updatedSeller : s)));
     saveSellerDoc(updatedSeller);
@@ -857,6 +933,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logoutOwner,
         updateOwnerPassword,
         updateOwnerBankingDetails,
+        updateOwnerTaxInvoiceSettings,
         updateOwnerWhatsappSettings,
         updateSubscriptionPlans,
         updateSingleSubscriptionPlan,

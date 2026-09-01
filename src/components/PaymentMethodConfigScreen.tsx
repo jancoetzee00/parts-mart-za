@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   CreditCard,
   Building2,
@@ -18,9 +18,17 @@ import {
   Smartphone,
   Info,
   RefreshCw,
-  FileText
+  FileText,
+  Download,
+  Printer,
+  History,
+  Receipt,
+  QrCode,
+  Mail
 } from 'lucide-react';
-import { Seller, OwnerSettings, SubscriptionPlan, SubscriptionPlanId } from '../types';
+import { Seller, OwnerSettings, SubscriptionPlan, SubscriptionPlanId, SubscriptionPaymentRecord } from '../types';
+import { TaxInvoiceModal } from './TaxInvoiceModal';
+import { downloadInvoicePdf } from '../lib/pdfInvoiceGenerator';
 
 interface PaymentMethodConfigScreenProps {
   seller: Seller;
@@ -80,6 +88,123 @@ export const PaymentMethodConfigScreen: React.FC<PaymentMethodConfigScreenProps>
     smsReceipt: true
   });
   const [savedPrefsNotice, setSavedPrefsNotice] = useState(false);
+
+  // Historical Payment Records state
+  const [payments, setPayments] = useState<SubscriptionPaymentRecord[]>(() => {
+    const storageKey = `part_smart_subscription_payments_${seller.id}`;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+
+    // Default historical invoices for seller records
+    const pricing = getPlanEffectivePricing(seller.planId);
+    const amount = pricing.effectivePrice;
+    const vatRate = ownerSettings.taxInvoiceSettings?.vatRatePercent || 15;
+    const vatZar = Math.round((amount * vatRate / (100 + vatRate)) * 100) / 100;
+    const prefix = ownerSettings.taxInvoiceSettings?.invoiceNumberPrefix || 'INV-PSZA-';
+    
+    const now = new Date();
+    const lastMonth = new Date(now);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+    const prevMonth = new Date(now);
+    prevMonth.setMonth(prevMonth.getMonth() - 2);
+
+    const initialList: SubscriptionPaymentRecord[] = [
+      {
+        id: `pay-${seller.id}-1`,
+        sellerId: seller.id,
+        sellerName: seller.companyName,
+        invoiceNumber: `${prefix}1048`,
+        paymentDate: seller.paymentProofSubmittedAt || lastMonth.toISOString(),
+        billingCycleStart: lastMonth.toISOString(),
+        billingCycleEnd: seller.subscriptionDueDate || now.toISOString(),
+        planId: seller.planId,
+        planName: pricing.name || 'Equipment Plan',
+        amountZar: amount,
+        vatZar: vatZar,
+        paymentMethod: 'Instant EFT',
+        reference: seller.lastPaymentRef || `EFT-891240-${seller.id.slice(0, 4).toUpperCase()}`,
+        status: seller.subscriptionStatus === 'active' ? 'verified' : 'pending',
+        taxInvoiceAttached: true,
+        emailDispatchedAt: lastMonth.toISOString(),
+        emailRecipient: seller.email,
+        vatRatePercent: vatRate,
+        supplierVatNumber: ownerSettings.taxInvoiceSettings?.vatRegistrationNumber || '4980123984'
+      },
+      {
+        id: `pay-${seller.id}-2`,
+        sellerId: seller.id,
+        sellerName: seller.companyName,
+        invoiceNumber: `${prefix}1035`,
+        paymentDate: prevMonth.toISOString(),
+        billingCycleStart: prevMonth.toISOString(),
+        billingCycleEnd: lastMonth.toISOString(),
+        planId: seller.planId,
+        planName: pricing.name || 'Equipment Plan',
+        amountZar: amount,
+        vatZar: vatZar,
+        paymentMethod: 'Instant EFT',
+        reference: `EFT-776210-${seller.id.slice(0, 4).toUpperCase()}`,
+        status: 'verified',
+        taxInvoiceAttached: true,
+        emailDispatchedAt: prevMonth.toISOString(),
+        emailRecipient: seller.email,
+        vatRatePercent: vatRate,
+        supplierVatNumber: ownerSettings.taxInvoiceSettings?.vatRegistrationNumber || '4980123984'
+      }
+    ];
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(initialList));
+    } catch {}
+
+    return initialList;
+  });
+
+  const [activeModalPayment, setActiveModalPayment] = useState<SubscriptionPaymentRecord | null>(null);
+  const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
+
+  // Sync payments if localStorage changes
+  useEffect(() => {
+    const storageKey = `part_smart_subscription_payments_${seller.id}`;
+    const syncPayments = () => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setPayments(parsed);
+        }
+      } catch {}
+    };
+    syncPayments();
+    window.addEventListener('storage', syncPayments);
+    return () => window.removeEventListener('storage', syncPayments);
+  }, [seller.id]);
+
+  const handleDownloadPdf = async (paymentRecord: SubscriptionPaymentRecord) => {
+    try {
+      setDownloadingPaymentId(paymentRecord.id);
+      await downloadInvoicePdf({
+        seller,
+        payment: paymentRecord,
+        ownerSettings
+      });
+      setFeedbackNotice({
+        type: 'success',
+        message: `Tax Invoice PDF (${paymentRecord.invoiceNumber}) downloaded successfully for your accounting records!`
+      });
+      setTimeout(() => setFeedbackNotice(null), 4000);
+    } catch (err) {
+      console.error('Error downloading invoice:', err);
+    } finally {
+      setDownloadingPaymentId(null);
+    }
+  };
 
   // Compute days remaining and expiry status
   const cycleInfo = useMemo(() => {
@@ -871,6 +996,144 @@ export const PaymentMethodConfigScreen: React.FC<PaymentMethodConfigScreenProps>
           )}
         </div>
       </div>
+
+      {/* 5. HISTORICAL PAYMENT LIST & TAX/VAT INVOICE RECEIPTS */}
+      <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+              <History className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                Historical Payment Records & Tax Invoices
+                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                  {payments.length} Invoices
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Official Section 20(4) VAT Act electronic receipts & payment confirmation records for {seller.companyName}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+              SARS VAT Registered ({ownerSettings.taxInvoiceSettings?.vatRegistrationNumber || '4980123984'})
+            </span>
+          </div>
+        </div>
+
+        {payments.length === 0 ? (
+          <div className="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-2">
+            <FileText className="w-8 h-8 text-slate-600 mx-auto" />
+            <div className="text-xs font-bold text-slate-400">No payment receipts on record yet</div>
+            <p className="text-[11px] text-slate-500">
+              Your automated SARS-compliant tax invoices will appear here immediately once your first subscription payment is settled.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {payments.map((p) => {
+              const exVat = p.amountZar - p.vatZar;
+              const isDownloading = downloadingPaymentId === p.id;
+
+              return (
+                <div
+                  key={p.id}
+                  className="bg-slate-900/90 hover:bg-slate-900 p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-amber-400 text-xs">
+                        {p.invoiceNumber}
+                      </span>
+
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> {p.status === 'verified' ? 'Paid & Reconciled' : 'Pending Verification'}
+                      </span>
+
+                      <span className="text-[11px] text-slate-300 font-semibold">
+                        {p.planName}
+                      </span>
+
+                      {p.taxInvoiceAttached !== false && (
+                        <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] px-1.5 py-0.2 rounded font-medium flex items-center gap-1">
+                          <Mail className="w-2.5 h-2.5" /> Email Attached
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>Date: <strong className="text-slate-200">{new Date(p.paymentDate).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
+                      <span>&bull;</span>
+                      <span>Ref: <strong className="text-slate-200 font-mono">{p.reference}</strong></span>
+                      <span>&bull;</span>
+                      <span>Method: <strong className="text-slate-200">{p.paymentMethod}</strong></span>
+                      <span>&bull;</span>
+                      <span>Cycle: <strong className="text-slate-300">{new Date(p.billingCycleStart).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })} - {new Date(p.billingCycleEnd).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Financial Breakdown & Action Buttons */}
+                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                    <div className="text-left md:text-right">
+                      <div className="text-sm font-black text-white">
+                        R{p.amountZar.toFixed(2)}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Excl: R{exVat.toFixed(2)} + 15% VAT (R{p.vatZar.toFixed(2)})
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Download PDF Receipt Icon/Button */}
+                      <button
+                        type="button"
+                        id={`btn-download-pdf-${p.id}`}
+                        onClick={() => handleDownloadPdf(p)}
+                        disabled={isDownloading}
+                        className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                        title="Download clean print-ready PDF Tax Invoice for your records"
+                      >
+                        {isDownloading ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                        <span className="hidden sm:inline">Download PDF Receipt</span>
+                        <span className="sm:hidden">PDF</span>
+                      </button>
+
+                      {/* View Interactive Modal Button */}
+                      <button
+                        type="button"
+                        id={`btn-view-invoice-${p.id}`}
+                        onClick={() => setActiveModalPayment(p)}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl transition-colors cursor-pointer border border-slate-700"
+                        title="View SARS Tax Invoice details & email confirmation"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* RENDER FULL TAX INVOICE MODAL WHEN TRIGGERED */}
+      {activeModalPayment && (
+        <TaxInvoiceModal
+          seller={seller}
+          payment={activeModalPayment}
+          ownerSettings={ownerSettings}
+          isOpen={true}
+          onClose={() => setActiveModalPayment(null)}
+        />
+      )}
 
     </div>
   );

@@ -57,6 +57,12 @@ export interface SubscriptionPaymentRecord {
   reference: string;
   status: 'verified' | 'pending' | 'failed';
   notes?: string;
+  emailDispatchedAt?: string;
+  emailRecipient?: string;
+  taxInvoiceAttached?: boolean;
+  vatRatePercent?: number;
+  supplierVatNumber?: string;
+  buyerVatNumber?: string;
 }
 
 export type SellerTrustTier = 'enterprise' | 'pro' | 'verified' | 'pending' | 'unverified';
@@ -148,11 +154,40 @@ export interface OwnerBankingDetails {
   updatedAt: string;
 }
 
+export interface OwnerTaxInvoiceSettings {
+  enabled: boolean; // Master toggle for automated Tax/VAT Invoicing
+  autoAttachToEmail?: boolean; // Automatically attach tax-compliant invoice to payment confirmation email
+  autoAttachToConfirmationEmail?: boolean; // Alias
+  autoSendOnApproval?: boolean; // Automatically dispatch email when owner clicks "Approve & Activate"
+  autoDispatchOnApproval?: boolean; // Alias
+  companyLegalName?: string; // Registered Business Name, e.g. "Part-Smart ZA (Pty) Ltd"
+  legalEntityName?: string; // Alias
+  tradingName?: string; // Trading Name, e.g. "Part-Smart ZA Equipment & Auto Breakers Network"
+  vatRegistrationNumber: string; // SARS VAT Registration Number (10 digits)
+  cipcRegistrationNumber?: string; // CIPC Company Registration Number
+  companyTaxNumber?: string; // SARS Income Tax Number
+  registeredAddress?: string; // Registered Business Address
+  billingEmail?: string; // Billing / Accounts Contact Email
+  billingContactEmail?: string; // Alias
+  billingPhone?: string; // Billing Contact Telephone
+  billingContactPhone?: string; // Alias
+  vatRatePercent: number; // South African standard VAT rate (15%)
+  invoiceNumberPrefix: string; // e.g. "INV-PSZA-"
+  nextInvoiceSequence: number; // e.g. 1042
+  taxComplianceNotice?: string; // SARS Section 20(4) VAT compliance statement
+  complianceNoticeText?: string; // Alias
+  emailSubjectTemplate: string; // e.g. "Payment Confirmed: Tax Invoice {invoiceNumber} - Part-Smart ZA"
+  emailBodyTemplate?: string; // Full body template
+  emailBodyCustomNote?: string; // Custom message included in payment confirmation email
+  updatedAt?: string;
+}
+
 export interface OwnerSettings {
   passwordHash: string; // Default password 'admin123' or customizable
   bankingDetails: OwnerBankingDetails;
   ownerEmail: string;
   ownerPhone: string;
+  taxInvoiceSettings?: OwnerTaxInvoiceSettings;
   subscriptionPlans?: SubscriptionPlan[];
   promotionalCampaign?: SubscriptionPromoCampaign;
   whatsappAutoReply?: {

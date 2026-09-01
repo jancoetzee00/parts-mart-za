@@ -45,17 +45,29 @@ import {
   ArrowRight,
   Gift,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Receipt,
+  FileText,
+  ShieldCheck,
+  Download,
+  Printer,
+  Mail,
+  QrCode,
+  Copy
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SubscriptionRevenueChart } from './SubscriptionRevenueChart';
+import { TaxInvoiceModal } from './TaxInvoiceModal';
+import { downloadInvoicePdf, generatePaymentConfirmationEmailContent } from '../lib/pdfInvoiceGenerator';
 import {
   OwnerBankingDetails,
+  OwnerTaxInvoiceSettings,
   Seller,
   SubscriptionStatus,
   SubscriptionPlanId,
   SubscriptionPlan,
   SubscriptionPromoCampaign,
+  SubscriptionPaymentRecord,
   InventoryItem,
   CategoryType
 } from '../types';
@@ -83,6 +95,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
     updateOwnerPassword,
     updateOwnerBankingDetails,
     updateOwnerWhatsappSettings,
+    updateOwnerTaxInvoiceSettings,
     updateSellerOutOfOffice,
     sellers,
     updateSellerStatus,
@@ -98,10 +111,49 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   const [loginError, setLoginError] = useState('');
 
   // Active Admin Tab
-  const [adminTab, setAdminTab] = useState<'sellers' | 'pricing' | 'analytics' | 'outofoffice' | 'inventory' | 'unpaid' | 'banking' | 'security'>('sellers');
+  const [adminTab, setAdminTab] = useState<'sellers' | 'pricing' | 'tax_invoice' | 'analytics' | 'outofoffice' | 'inventory' | 'unpaid' | 'banking' | 'security'>('sellers');
 
   // Action status message
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Automated Tax / VAT Invoicing Settings State
+  const [taxInvoiceForm, setTaxInvoiceForm] = useState<OwnerTaxInvoiceSettings>(() => {
+    if (ownerSettings.taxInvoiceSettings) {
+      return { ...ownerSettings.taxInvoiceSettings };
+    }
+    return {
+      enabled: true,
+      autoAttachToConfirmationEmail: true,
+      autoDispatchOnApproval: true,
+      vatRegistrationNumber: '4980123984',
+      companyTaxNumber: '9840219481',
+      legalEntityName: 'Part-Smart ZA Proprietary Limited',
+      tradingName: 'Part-Smart ZA Heavy Commercial & Auto Spares Network',
+      cipcRegistrationNumber: '2021/849201/07',
+      registeredAddress: '14 Auto Spares Crescent, Apex Industrial, Benoni, 1501, Gauteng, South Africa',
+      billingContactEmail: 'accounts@partsmart.co.za',
+      billingContactPhone: '+27 11 892 4000',
+      vatRatePercent: 15,
+      invoiceNumberPrefix: 'INV-PSZA-',
+      nextInvoiceSequence: 1049,
+      complianceNoticeText: 'Tax Invoice issued in accordance with Section 20(4) of the Value-Added Tax Act No. 89 of 1991 of the Republic of South Africa.',
+      emailSubjectTemplate: 'Tax Invoice & Payment Confirmation: Part-Smart ZA Subscription [InvoiceNumber]',
+      emailBodyTemplate: 'Dear [SellerContact],\n\nThank you for renewing your heavy equipment & auto parts listing subscription for [YardName].\n\nYour payment of [TotalAmount] for the [PlanName] billing cycle has been verified and applied.\n\nPlease find your SARS-compliant electronic tax invoice ([InvoiceNumber]) attached to this email for your company accounting and VAT records.\n\nWarm regards,\nPart-Smart ZA Billing & Accounts Team'
+    };
+  });
+
+  const [taxSaveSuccess, setTaxSaveSuccess] = useState(false);
+  const [taxPreviewSellerId, setTaxPreviewSellerId] = useState<string>(sellers[0]?.id || '');
+  const [activeTaxModalPayment, setActiveTaxModalPayment] = useState<SubscriptionPaymentRecord | null>(null);
+  const [activeTaxModalSeller, setActiveTaxModalSeller] = useState<Seller | null>(null);
+  const [isDownloadingTaxPdf, setIsDownloadingTaxPdf] = useState(false);
+
+  // Sync tax invoice form when owner settings change
+  useEffect(() => {
+    if (ownerSettings.taxInvoiceSettings) {
+      setTaxInvoiceForm({ ...ownerSettings.taxInvoiceSettings });
+    }
+  }, [ownerSettings.taxInvoiceSettings]);
 
   // Pricing & Promotional Campaigns Management State
   const [plansForm, setPlansForm] = useState<SubscriptionPlan[]>(() => {
@@ -672,6 +724,152 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
     }, 4000);
   };
 
+  // Tax Invoice Handlers
+  const handleSaveTaxInvoiceSettings = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    updateOwnerTaxInvoiceSettings(taxInvoiceForm);
+    setTaxSaveSuccess(true);
+    setActionNotice({
+      type: 'success',
+      message: 'Automated Tax / VAT Invoice settings, SARS profile & email attachment rules saved successfully!'
+    });
+    setTimeout(() => {
+      setTaxSaveSuccess(false);
+    }, 4000);
+  };
+
+  const applyVatPreset15Percent = () => {
+    setTaxInvoiceForm((prev) => ({
+      ...prev,
+      enabled: true,
+      vatRatePercent: 15,
+      complianceNoticeText: 'Tax Invoice issued in accordance with Section 20(4) of the Value-Added Tax Act No. 89 of 1991 of the Republic of South Africa.'
+    }));
+  };
+
+  const applyZeroRatedPreset = () => {
+    setTaxInvoiceForm((prev) => ({
+      ...prev,
+      enabled: true,
+      vatRatePercent: 0,
+      complianceNoticeText: 'Zero-rated supply in terms of Section 11 of the Value-Added Tax Act No. 89 of 1991.'
+    }));
+  };
+
+  const applyExemptPreset = () => {
+    setTaxInvoiceForm((prev) => ({
+      ...prev,
+      enabled: true,
+      vatRatePercent: 0,
+      complianceNoticeText: 'Exempt supply / non-VAT vendor under Section 12 of the Value-Added Tax Act No. 89 of 1991.'
+    }));
+  };
+
+  const openTaxInvoiceModalForSeller = (seller: Seller) => {
+    const pricing = getPlanEffectivePricing(seller.planId);
+    const amount = pricing.effectivePrice;
+    const vatRate = taxInvoiceForm.vatRatePercent || 15;
+    const vatZar = Math.round((amount * vatRate / (100 + vatRate)) * 100) / 100;
+    const prefix = taxInvoiceForm.invoiceNumberPrefix || 'INV-PSZA-';
+    
+    // Check if seller already has payments in localStorage
+    let record: SubscriptionPaymentRecord | null = null;
+    try {
+      const raw = localStorage.getItem(`part_smart_subscription_payments_${seller.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          record = parsed[0];
+        }
+      }
+    } catch {}
+
+    if (!record) {
+      const now = new Date();
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      record = {
+        id: `pay-${seller.id}-${Date.now()}`,
+        sellerId: seller.id,
+        sellerName: seller.companyName,
+        invoiceNumber: `${prefix}${taxInvoiceForm.nextInvoiceSequence || 1049}`,
+        paymentDate: seller.paymentProofSubmittedAt || now.toISOString(),
+        billingCycleStart: now.toISOString(),
+        billingCycleEnd: seller.subscriptionDueDate || nextMonth.toISOString(),
+        planId: seller.planId,
+        planName: pricing.name || 'Equipment Plan',
+        amountZar: amount,
+        vatZar: vatZar,
+        paymentMethod: 'Instant EFT',
+        reference: seller.lastPaymentRef || `EFT-${Math.floor(100000 + Math.random() * 900000)}-${seller.id.slice(0, 4).toUpperCase()}`,
+        status: seller.subscriptionStatus === 'active' ? 'verified' : 'pending',
+        taxInvoiceAttached: taxInvoiceForm.autoAttachToConfirmationEmail !== false,
+        emailDispatchedAt: now.toISOString(),
+        emailRecipient: seller.email,
+        vatRatePercent: vatRate,
+        supplierVatNumber: taxInvoiceForm.vatRegistrationNumber
+      };
+    }
+
+    setActiveTaxModalSeller(seller);
+    setActiveTaxModalPayment(record);
+  };
+
+  const handleDownloadSampleTaxPdf = async (seller: Seller) => {
+    try {
+      setIsDownloadingTaxPdf(true);
+      const pricing = getPlanEffectivePricing(seller.planId);
+      const amount = pricing.effectivePrice;
+      const vatRate = taxInvoiceForm.vatRatePercent || 15;
+      const vatZar = Math.round((amount * vatRate / (100 + vatRate)) * 100) / 100;
+      const prefix = taxInvoiceForm.invoiceNumberPrefix || 'INV-PSZA-';
+      const now = new Date();
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      const samplePayment: SubscriptionPaymentRecord = {
+        id: `sample-${seller.id}`,
+        sellerId: seller.id,
+        sellerName: seller.companyName,
+        invoiceNumber: `${prefix}${taxInvoiceForm.nextInvoiceSequence || 1049}`,
+        paymentDate: now.toISOString(),
+        billingCycleStart: now.toISOString(),
+        billingCycleEnd: nextMonth.toISOString(),
+        planId: seller.planId,
+        planName: pricing.name || 'Pro Equipment Plan',
+        amountZar: amount,
+        vatZar: vatZar,
+        paymentMethod: 'Instant EFT',
+        reference: seller.lastPaymentRef || `EFT-892100-${seller.id.slice(0, 4).toUpperCase()}`,
+        status: 'verified',
+        taxInvoiceAttached: true,
+        emailDispatchedAt: now.toISOString(),
+        emailRecipient: seller.email,
+        vatRatePercent: vatRate,
+        supplierVatNumber: taxInvoiceForm.vatRegistrationNumber
+      };
+
+      await downloadInvoicePdf({
+        seller,
+        payment: samplePayment,
+        ownerSettings: {
+          ...ownerSettings,
+          taxInvoiceSettings: taxInvoiceForm
+        }
+      });
+
+      setActionNotice({
+        type: 'success',
+        message: `Sample Tax Invoice PDF (${samplePayment.invoiceNumber}) downloaded successfully!`
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDownloadingTaxPdf(false);
+    }
+  };
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
@@ -882,6 +1080,24 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
               </button>
 
               <button
+                id="btn-admin-tab-tax-invoices"
+                onClick={() => setAdminTab('tax_invoice')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  adminTab === 'tax_invoice'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5 text-amber-400" />
+                <span>Automated Tax / VAT Invoicing</span>
+                {taxInvoiceForm.enabled && (
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-1.5 py-0.2 rounded-full ml-1">
+                    {taxInvoiceForm.vatRatePercent}% VAT
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setAdminTab('outofoffice')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   adminTab === 'outofoffice'
@@ -1066,6 +1282,17 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
 
                               {/* Owner Actions for Seller */}
                               <div className="flex items-center gap-2 flex-wrap">
+                                {/* Quick Tax Invoice Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => openTaxInvoiceModalForSeller(s)}
+                                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-amber-300 hover:text-white border border-slate-700 hover:border-amber-500/40 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                                  title="View, print or download official SARS Tax Invoice for this seller"
+                                >
+                                  <Receipt className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>Tax Invoice</span>
+                                </button>
+
                                 {/* Quick Out-of-Office Config Button */}
                                 <button
                                   onClick={() => {
@@ -2636,6 +2863,575 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
               )}
 
               {/* ========================================================================= */}
+              {/* TAB: AUTOMATED TAX / VAT INVOICE SETTINGS & SARS COMPLIANCE */}
+              {/* ========================================================================= */}
+              {adminTab === 'tax_invoice' && (
+                <div className="space-y-8 max-w-5xl mx-auto animate-in fade-in duration-200">
+                  
+                  {/* Top Tax / VAT Header Banner */}
+                  <div className="bg-gradient-to-r from-amber-950/40 via-slate-950 to-emerald-950/30 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-2xl flex items-center justify-center font-black shrink-0 shadow-lg">
+                          <Receipt className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-black text-white">Automated Tax / VAT Invoicing</h3>
+                            <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                              SARS Section 20(4)
+                            </span>
+                            {taxInvoiceForm.enabled ? (
+                              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Invoicing Engine Active ({taxInvoiceForm.vatRatePercent}% VAT)
+                              </span>
+                            ) : (
+                              <span className="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Automatically generate and attach SARS-compliant tax invoices to subscription payment confirmations and seller approval emails.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sampleSeller = sellers.find(s => s.id === taxPreviewSellerId) || sellers[0];
+                            if (sampleSeller) openTaxInvoiceModalForSeller(sampleSeller);
+                          }}
+                          className="px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/50 text-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                        >
+                          <Eye className="w-4 h-4 text-amber-400" />
+                          <span>Preview Invoice</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveTaxInvoiceSettings()}
+                          className="flex-1 md:flex-none px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Save Invoice Settings</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {taxSaveSuccess && (
+                      <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 p-3.5 rounded-2xl text-xs flex items-center gap-2 animate-in fade-in">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span><strong>Settings Saved!</strong> Automated tax invoicing, VAT rules, and email dispatch triggers are synchronized.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 1. MASTER AUTOMATION TOGGLES */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-lg">
+                    <h4 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      Automated Invoicing & Email Attachment Triggers
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Toggle 1: Enable Engine */}
+                      <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span>Tax Invoicing Engine</span>
+                          </label>
+                          <p className="text-[11px] text-slate-400">
+                            Enables automated SARS Section 20(4) tax invoice numbering, calculations, and PDF generation.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTaxInvoiceForm(prev => ({ ...prev, enabled: !prev.enabled }))}
+                          className={`w-full py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 border ${
+                            taxInvoiceForm.enabled
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 ring-2 ring-emerald-500/20'
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${taxInvoiceForm.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+                          <span>{taxInvoiceForm.enabled ? 'Enabled' : 'Disabled'}</span>
+                        </button>
+                      </div>
+
+                      {/* Toggle 2: Auto-attach to Payment Confirmation */}
+                      <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span>Auto-Attach to Confirmation Email</span>
+                          </label>
+                          <p className="text-[11px] text-slate-400">
+                            Automatically generates and attaches the official PDF receipt/invoice whenever payment is verified.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTaxInvoiceForm(prev => ({ ...prev, autoAttachToConfirmationEmail: !prev.autoAttachToConfirmationEmail }))}
+                          className={`w-full py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 border ${
+                            taxInvoiceForm.autoAttachToConfirmationEmail
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 ring-2 ring-emerald-500/20'
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${taxInvoiceForm.autoAttachToConfirmationEmail ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                          <span>{taxInvoiceForm.autoAttachToConfirmationEmail ? 'Auto-Attach Active' : 'Do Not Attach'}</span>
+                        </button>
+                      </div>
+
+                      {/* Toggle 3: Auto-dispatch on Approval */}
+                      <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span>Auto-Dispatch on Seller Activation</span>
+                          </label>
+                          <p className="text-[11px] text-slate-400">
+                            Triggers immediate invoice generation & email notification when approving a seller in the console.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTaxInvoiceForm(prev => ({ ...prev, autoDispatchOnApproval: !prev.autoDispatchOnApproval }))}
+                          className={`w-full py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 border ${
+                            taxInvoiceForm.autoDispatchOnApproval
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 ring-2 ring-emerald-500/20'
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${taxInvoiceForm.autoDispatchOnApproval ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                          <span>{taxInvoiceForm.autoDispatchOnApproval ? 'Dispatch on Approval' : 'Manual Approval Only'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. ONE-CLICK VAT RATE & STATUTORY PRESETS */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <Percent className="w-3.5 h-3.5" /> One-Click VAT & Tax Presets:
+                      </label>
+                      <span className="text-[10px] text-slate-500">Applies official South African tax presets</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={applyVatPreset15Percent}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer group ${
+                          taxInvoiceForm.vatRatePercent === 15
+                            ? 'bg-amber-500/10 border-amber-500 text-white'
+                            : 'bg-slate-900/80 border-slate-800 hover:border-amber-500/40 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-amber-400">🇿🇦 15% SARS Standard VAT</span>
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">Standard</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Standard rate for VAT-registered South African enterprises (VAT Act Section 7).
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={applyZeroRatedPreset}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer group ${
+                          taxInvoiceForm.vatRatePercent === 0 && taxInvoiceForm.complianceNoticeText?.includes('Section 11')
+                            ? 'bg-amber-500/10 border-amber-500 text-white'
+                            : 'bg-slate-900/80 border-slate-800 hover:border-amber-500/40 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-amber-400">📦 0% Zero-Rated Supply</span>
+                          <span className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">Section 11</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Cross-border services, SADC export services, and zero-rated supplies.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={applyExemptPreset}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer group ${
+                          taxInvoiceForm.vatRatePercent === 0 && taxInvoiceForm.complianceNoticeText?.includes('Section 12')
+                            ? 'bg-amber-500/10 border-amber-500 text-white'
+                            : 'bg-slate-900/80 border-slate-800 hover:border-amber-500/40 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-amber-400">🚫 Exempt / Non-VAT Vendor</span>
+                          <span className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">Turnover &lt; R1m</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          For sole proprietors or entities below the mandatory R1m VAT threshold.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. SARS LEGAL ENTITY & SUPPLIER DETAILS */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-lg">
+                    <h4 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <Building2 className="w-4 h-4 text-amber-400" />
+                      Platform Supplier Legal Entity Profile (Printed on Invoices)
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Registered Legal Entity Name</label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.legalEntityName}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, legalEntityName: e.target.value })}
+                          placeholder="e.g. Part-Smart ZA Proprietary Limited"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Trading Name / Brand</label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.tradingName || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, tradingName: e.target.value })}
+                          placeholder="e.g. Part-Smart ZA Heavy Commercial & Auto Spares Network"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold flex items-center justify-between">
+                          <span>SARS VAT Registration Number (10 Digits)</span>
+                          <span className="text-[10px] text-amber-400 font-mono">Section 20(4)(a)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.vatRegistrationNumber}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, vatRegistrationNumber: e.target.value })}
+                          placeholder="e.g. 4980123984"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold flex items-center justify-between">
+                          <span>CIPC Company Registration Number</span>
+                          <span className="text-[10px] text-slate-500 font-mono">South Africa</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.cipcRegistrationNumber || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, cipcRegistrationNumber: e.target.value })}
+                          placeholder="e.g. 2021/849201/07"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">SARS Income Tax Reference Number</label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.companyTaxNumber || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, companyTaxNumber: e.target.value })}
+                          placeholder="e.g. 9840219481"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Accounts / Billing Email Address</label>
+                        <input
+                          type="email"
+                          value={taxInvoiceForm.billingContactEmail || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, billingContactEmail: e.target.value })}
+                          placeholder="e.g. accounts@partsmart.co.za"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1 md:col-span-2">
+                        <label className="text-slate-300 font-bold">Registered Legal & Physical Address</label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.registeredAddress || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, registeredAddress: e.target.value })}
+                          placeholder="e.g. 14 Auto Spares Crescent, Apex Industrial, Benoni, 1501, Gauteng, South Africa"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. INVOICE NUMBERING & STATUTORY NOTICE */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-lg">
+                    <h4 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <FileText className="w-4 h-4 text-amber-400" />
+                      Invoice Number Sequence & Statutory Notice
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Invoice Number Prefix</label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.invoiceNumberPrefix}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, invoiceNumberPrefix: e.target.value })}
+                          placeholder="e.g. INV-PSZA-"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                        <span className="text-[10px] text-slate-500">e.g. INV-PSZA-</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Next Sequence Number</label>
+                        <input
+                          type="number"
+                          min="1000"
+                          value={taxInvoiceForm.nextInvoiceSequence}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, nextInvoiceSequence: Number(e.target.value) })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                        <span className="text-[10px] text-slate-500">Next invoice: {taxInvoiceForm.invoiceNumberPrefix}{taxInvoiceForm.nextInvoiceSequence}</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold">Applicable VAT Rate (%)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="30"
+                            value={taxInvoiceForm.vatRatePercent}
+                            onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, vatRatePercent: Number(e.target.value) })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono font-bold focus:outline-none focus:border-amber-500"
+                          />
+                          <span className="absolute right-3.5 top-2.5 text-slate-400 font-bold">%</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500">South Africa standard: 15%</span>
+                      </div>
+
+                      <div className="space-y-1 md:col-span-3">
+                        <label className="text-slate-300 font-bold">Official SARS Statutory Compliance Footnote</label>
+                        <textarea
+                          rows={2}
+                          value={taxInvoiceForm.complianceNoticeText || ''}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, complianceNoticeText: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. EMAIL NOTIFICATION & ATTACHMENT TEMPLATE */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-lg">
+                    <h4 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <Mail className="w-4 h-4 text-emerald-400" />
+                      Payment Confirmation Email & Tax Invoice Dispatch Template
+                    </h4>
+
+                    <div className="space-y-4 text-xs">
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold flex items-center justify-between">
+                          <span>Email Subject Line Template</span>
+                          <span className="text-[10px] text-slate-400">Supports [InvoiceNumber], [YardName], [PlanName]</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={taxInvoiceForm.emailSubjectTemplate}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, emailSubjectTemplate: e.target.value })}
+                          placeholder="e.g. Tax Invoice & Payment Confirmation: Part-Smart ZA Subscription [InvoiceNumber]"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-slate-300 font-bold flex items-center justify-between">
+                          <span>Email Body Content (Dispatched with Attached PDF)</span>
+                          <span className="text-[10px] text-slate-400">Tokens: [SellerContact], [YardName], [TotalAmount], [PlanName], [InvoiceNumber]</span>
+                        </label>
+                        <textarea
+                          rows={6}
+                          value={taxInvoiceForm.emailBodyTemplate}
+                          onChange={(e) => setTaxInvoiceForm({ ...taxInvoiceForm, emailBodyTemplate: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-amber-500 leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. LIVE INTERACTIVE INVOICE & EMAIL SIMULATOR */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-lg">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                      <div>
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-amber-400" />
+                          Live Email & Invoice Attachment Simulator
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Select a scrap yard to test dynamic calculation, email dispatch rendering, and download a sample tax PDF.
+                        </p>
+                      </div>
+
+                      {/* Select Seller for Simulator */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-bold">Preview Yard:</span>
+                        <select
+                          value={taxPreviewSellerId}
+                          onChange={(e) => setTaxPreviewSellerId(e.target.value)}
+                          className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white cursor-pointer"
+                        >
+                          {sellers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.companyName} ({s.planId.toUpperCase()} Plan)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const sampleSeller = sellers.find(s => s.id === taxPreviewSellerId) || sellers[0];
+                      if (!sampleSeller) return null;
+                      const pricing = getPlanEffectivePricing(sampleSeller.planId);
+                      const amount = pricing.effectivePrice;
+                      const vatRate = taxInvoiceForm.vatRatePercent || 15;
+                      const vatZar = Math.round((amount * vatRate / (100 + vatRate)) * 100) / 100;
+                      const invNumber = `${taxInvoiceForm.invoiceNumberPrefix || 'INV-PSZA-'}${taxInvoiceForm.nextInvoiceSequence || 1049}`;
+                      
+                      const simulatedSubject = (taxInvoiceForm.emailSubjectTemplate || 'Tax Invoice & Payment Confirmation: [InvoiceNumber]')
+                        .replace(/\[InvoiceNumber\]/g, invNumber)
+                        .replace(/\[YardName\]/g, sampleSeller.companyName)
+                        .replace(/\[PlanName\]/g, pricing.name || 'Equipment Plan');
+
+                      const simulatedBody = (taxInvoiceForm.emailBodyTemplate || '')
+                        .replace(/\[SellerContact\]/g, sampleSeller.contactName)
+                        .replace(/\[YardName\]/g, sampleSeller.companyName)
+                        .replace(/\[TotalAmount\]/g, `R${amount.toFixed(2)}`)
+                        .replace(/\[PlanName\]/g, pricing.name || 'Equipment Plan')
+                        .replace(/\[InvoiceNumber\]/g, invNumber)
+                        .replace(/\[VatAmount\]/g, `R${vatZar.toFixed(2)}`);
+
+                      return (
+                        <div className="space-y-4">
+                          {/* Financial Breakdown Pill */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">Selected Plan</span>
+                              <span className="font-bold text-white text-sm">{pricing.name}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Amount (Incl. VAT)</span>
+                              <span className="font-black text-amber-400 text-base">R{amount}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">VAT Amount ({vatRate}%)</span>
+                              <span className="font-mono text-emerald-400 font-bold">R{vatZar.toFixed(2)}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">Exclusive Subtotal</span>
+                              <span className="font-mono text-slate-300">R{(amount - vatZar).toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          {/* Simulated Email Client Container */}
+                          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4 shadow-inner">
+                            {/* Email Header */}
+                            <div className="space-y-1.5 border-b border-slate-800 pb-3 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 font-bold w-14">From:</span>
+                                <span className="text-slate-200 font-medium">Part-Smart ZA Accounts &lt;{taxInvoiceForm.billingContactEmail || 'accounts@partsmart.co.za'}&gt;</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 font-bold w-14">To:</span>
+                                <span className="text-slate-200 font-medium">{sampleSeller.contactName} &lt;{sampleSeller.email}&gt;</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 font-bold w-14">Subject:</span>
+                                <span className="text-amber-400 font-bold">{simulatedSubject}</span>
+                              </div>
+                            </div>
+
+                            {/* Email Body */}
+                            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 font-sans text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
+                              {simulatedBody}
+                            </div>
+
+                            {/* Attached PDF Badge */}
+                            {taxInvoiceForm.autoAttachToConfirmationEmail && (
+                              <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/30 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs">
+                                    PDF
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                                      <span>{invNumber}.pdf</span>
+                                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-bold">
+                                        SARS Tax Invoice
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      Compliant electronic tax invoice (Section 20(4))
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadSampleTaxPdf(sampleSeller)}
+                                    disabled={isDownloadingTaxPdf}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>{isDownloadingTaxPdf ? 'Generating PDF...' : 'Download Sample PDF'}</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => openTaxInvoiceModalForSeller(sampleSeller)}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Interactive View</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Bottom Save & Apply Bar */}
+                  <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-slate-400">
+                      <strong className="text-white">Ready to save?</strong> These tax and invoicing rules will immediately apply to all seller payment receipts, verification emails, and portal downloads.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveTaxInvoiceSettings()}
+                      className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save & Apply All Tax Invoice Settings</span>
+                    </button>
+                  </div>
+
+                </div>
+              )}
+
+              {/* ========================================================================= */}
               {/* TAB: REVENUE TRENDS & ANALYTICS DATA VISUALIZATION */}
               {/* ========================================================================= */}
               {adminTab === 'analytics' && (
@@ -2801,6 +3597,22 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
               </div>
             </div>
           </div>
+        )}
+
+        {/* 4. SELLER TAX INVOICE PREVIEW & PRINT MODAL */}
+        {activeTaxModalPayment && (
+          <TaxInvoiceModal
+            payment={activeTaxModalPayment}
+            seller={activeTaxModalSeller}
+            ownerSettings={{
+              ...ownerSettings,
+              taxInvoiceSettings: taxInvoiceForm
+            }}
+            onClose={() => {
+              setActiveTaxModalPayment(null);
+              setActiveTaxModalSeller(null);
+            }}
+          />
         )}
 
       </div>

@@ -60,7 +60,8 @@
         "passwordHash": { "type": "string", "maxLength": 200 },
         "ownerEmail": { "type": "string", "maxLength": 100 },
         "ownerPhone": { "type": "string", "maxLength": 50 },
-        "bankingDetails": { "type": "object" }
+        "bankingDetails": { "type": "object" },
+        "taxInvoiceSettings": { "type": "object" }
       },
       "required": ["ownerEmail", "bankingDetails"]
     },

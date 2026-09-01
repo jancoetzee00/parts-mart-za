@@ -59,6 +59,16 @@ export const Header: React.FC<HeaderProps> = ({
   // Count unpaid sellers
   const unpaidCount = sellers.filter(s => s.subscriptionStatus === 'unpaid' || s.subscriptionStatus === 'pending_verification').length;
 
+  // Active seller 3-day expiry indicator
+  const sellerDaysRemaining = (() => {
+    if (!activeSeller || !activeSeller.subscriptionDueDate) return null;
+    const now = new Date();
+    const dueDate = new Date(activeSeller.subscriptionDueDate);
+    if (isNaN(dueDate.getTime())) return null;
+    return Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  })();
+  const isExpiringWithin3Days = sellerDaysRemaining !== null && ((sellerDaysRemaining <= 3 && sellerDaysRemaining > 0) || activeSeller?.subscriptionStatus === 'unpaid');
+
   const handleCategorySelect = (cat: CategoryType | 'all') => {
     setFilter({ category: cat, subcategory: 'All', onlyFavorites: false });
   };
@@ -250,7 +260,11 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="truncate max-w-[120px] sm:max-w-[160px]">
               {activeSeller ? activeSeller.companyName : 'Seller Portal'}
             </span>
-            {activeSeller && (
+            {isExpiringWithin3Days ? (
+              <span className="bg-rose-950 text-amber-300 border border-amber-500/40 text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse shadow-sm">
+                {sellerDaysRemaining && sellerDaysRemaining > 0 ? `${sellerDaysRemaining}D DUE` : 'EXPIRED'}
+              </span>
+            ) : activeSeller && (
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
                   activeSeller.subscriptionStatus === 'active'

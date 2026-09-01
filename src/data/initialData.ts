@@ -94,6 +94,25 @@ export const INITIAL_OWNER_SETTINGS: OwnerSettings = {
     additionalInstructions: 'Please use your registered Company Name or Seller ID as the EFT payment reference. Email proof of payment (POP) to accounts@partsmart.co.za or upload your reference number in the Seller Portal for instant review.',
     updatedAt: new Date().toISOString()
   },
+  taxInvoiceSettings: {
+    enabled: true,
+    autoAttachToEmail: true,
+    autoSendOnApproval: true,
+    companyLegalName: 'Part-Smart ZA (Pty) Ltd',
+    tradingName: 'Part-Smart ZA Heavy & Commercial Spares Network',
+    vatRegistrationNumber: '4980123984',
+    cipcRegistrationNumber: '2024/891230/07',
+    registeredAddress: 'Building 4, Highveld Techno Park, Centurion, Gauteng, 0157, South Africa',
+    billingEmail: 'accounts@partsmart.co.za',
+    billingPhone: '+27 11 892 4000',
+    vatRatePercent: 15,
+    invoiceNumberPrefix: 'INV-PSZA-',
+    nextInvoiceSequence: 1048,
+    taxComplianceNotice: 'Valid electronic Tax Invoice issued in accordance with Section 20(4) of the South African Value-Added Tax Act, 1991 (Act No. 89 of 1991). The tax invoice is valid without a physical signature.',
+    emailSubjectTemplate: 'Payment Confirmed: Tax Invoice {invoiceNumber} - Part-Smart ZA',
+    emailBodyCustomNote: 'Thank you for your prompt subscription settlement. Your equipment yard is now fully ACTIVE and featured across South Africa. Your SARS-compliant Tax/VAT Invoice is attached below.',
+    updatedAt: new Date().toISOString()
+  },
   whatsappAutoReply: {
     enabledByDefault: false,
     defaultOutOfOfficeTemplate: 'Our scrap yard sales desk is currently closed or out of office. All spare part enquiries will be prioritised once trading opens. For urgent commercial breakdown emergencies, please leave your vehicle VIN and engine code.',

@@ -69,14 +69,26 @@ export async function downloadInvoicePdf({ seller, payment, ownerSettings }: Inv
   doc.text('HEAVY MACHINERY & AUTO SPARES DIRECTORY', margin, cursorY + 5);
 
   // Supplier Details (Left)
+  const taxConfig = ownerSettings.taxInvoiceSettings || {
+    companyLegalName: 'Part-Smart ZA (Pty) Ltd',
+    tradingName: 'Part-Smart ZA Marketplace',
+    vatRegistrationNumber: '4980123984',
+    cipcRegistrationNumber: '2024/891230/07',
+    registeredAddress: 'Building 4, Highveld Techno Park, Centurion, Gauteng, 0157',
+    billingEmail: 'accounts@partsmart.co.za',
+    billingPhone: '+27 11 892 4000',
+    vatRatePercent: 15,
+    taxComplianceNotice: 'Valid electronic Tax Invoice issued in accordance with Section 20(4) of the South African Value-Added Tax Act, 1991 (Act No. 89 of 1991).'
+  };
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text('Part-Smart ZA (Pty) Ltd', margin, cursorY + 11);
-  doc.text('Reg No: 2024/891230/07', margin, cursorY + 15);
-  doc.text('VAT Reg No: 4980123984', margin, cursorY + 19);
-  doc.text('Highveld Industrial Park, Gauteng, South Africa', margin, cursorY + 23);
-  doc.text('accounts@partsmart.co.za | +27 11 892 4000', margin, cursorY + 27);
+  doc.text(taxConfig.companyLegalName, margin, cursorY + 11);
+  doc.text(`Reg No: ${taxConfig.cipcRegistrationNumber}`, margin, cursorY + 15);
+  doc.text(`VAT Reg No: ${taxConfig.vatRegistrationNumber}`, margin, cursorY + 19);
+  doc.text(taxConfig.registeredAddress.substring(0, 48), margin, cursorY + 23);
+  doc.text(`${taxConfig.billingEmail} | ${taxConfig.billingPhone}`, margin, cursorY + 27);
 
   // Invoice Title & Badges (Right)
   const rightX = pageWidth - margin;
@@ -290,7 +302,7 @@ export async function downloadInvoicePdf({ seller, payment, ownerSettings }: Inv
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-  const legalNotice = 'This document is a computer-generated electronic Tax Invoice issued in accordance with Section 20(4) of the South African Value-Added Tax Act, 1991 (Act No. 89 of 1991). The tax invoice is valid without a physical signature. All queries regarding this invoice can be directed to accounts@partsmart.co.za.';
+  const legalNotice = taxConfig.taxComplianceNotice || 'This document is a computer-generated electronic Tax Invoice issued in accordance with Section 20(4) of the South African Value-Added Tax Act, 1991 (Act No. 89 of 1991). The tax invoice is valid without a physical signature. All queries regarding this invoice can be directed to accounts@partsmart.co.za.';
   const splitNotice = doc.splitTextToSize(legalNotice, contentWidth);
   doc.text(splitNotice, margin, cursorY);
 
@@ -319,3 +331,158 @@ export async function downloadInvoicePdf({ seller, payment, ownerSettings }: Inv
   const filename = `PartSmart_TaxInvoice_${sanitizedInvoice}.pdf`;
   doc.save(filename);
 }
+
+/**
+ * Generates email content for the automated payment confirmation with the Tax Invoice attached
+ */
+export function generatePaymentConfirmationEmailContent({
+  seller,
+  payment,
+  ownerSettings
+}: InvoicePdfOptions) {
+  const taxConfig = ownerSettings.taxInvoiceSettings || {
+    companyLegalName: 'Part-Smart ZA (Pty) Ltd',
+    tradingName: 'Part-Smart ZA Heavy & Commercial Spares Network',
+    vatRegistrationNumber: '4980123984',
+    cipcRegistrationNumber: '2024/891230/07',
+    registeredAddress: 'Building 4, Highveld Techno Park, Centurion, Gauteng, 0157',
+    billingEmail: 'accounts@partsmart.co.za',
+    billingPhone: '+27 11 892 4000',
+    vatRatePercent: 15,
+    emailSubjectTemplate: 'Payment Confirmed: Tax Invoice {invoiceNumber} - Part-Smart ZA',
+    taxComplianceNotice: 'This document is a tax invoice issued in accordance with Section 20(4) of the Value-Added Tax Act, No. 89 of 1991.',
+    emailBodyCustomNote: 'Thank you for your prompt subscription settlement. Your equipment yard is now fully ACTIVE and featured across South Africa.'
+  };
+
+  const subject = (taxConfig.emailSubjectTemplate || 'Payment Confirmed: Tax Invoice {invoiceNumber} - Part-Smart ZA')
+    .replace('{invoiceNumber}', payment.invoiceNumber)
+    .replace('{companyName}', seller.companyName);
+
+  const formattedAmount = formatZar(payment.amountZar);
+  const formattedVat = formatZar(payment.vatZar);
+  const exVat = formatZar(payment.amountZar - payment.vatZar);
+  const paymentDateFormatted = new Date(payment.paymentDate).toLocaleDateString('en-ZA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const cycleEndFormatted = new Date(payment.billingCycleEnd).toLocaleDateString('en-ZA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const attachmentFilename = `TaxInvoice_${payment.invoiceNumber.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+        .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .header { background: #0f172a; padding: 24px 32px; border-bottom: 4px solid #f59e0b; }
+        .logo { color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+        .logo span { color: #f59e0b; }
+        .badge-paid { display: inline-block; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-top: 12px; }
+        .body { padding: 32px; }
+        .greeting { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+        .lead { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; font-size: 13px; }
+        .table th { background: #f1f5f9; padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; }
+        .table td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+        .table tr:last-child td { border-bottom: none; font-weight: 700; color: #0f172a; }
+        .attachment-box { background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+        .att-name { font-weight: 600; font-size: 13px; color: #0f172a; }
+        .att-sub { font-size: 11px; color: #64748b; }
+        .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; font-size: 11px; color: #64748b; line-height: 1.5; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <div class="logo">PART-SMART<span> ZA</span></div>
+          <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">HEAVY MACHINERY & AUTO SPARES MARKETPLACE</div>
+          <div class="badge-paid">✓ Subscription Payment Confirmed & Reconciled</div>
+        </div>
+        <div class="body">
+          <div class="greeting">Dear ${seller.contactName || seller.companyName},</div>
+          <p class="lead">
+            We are pleased to confirm that your monthly dealer subscription payment has been received and verified. 
+            Your yard listings are fully active on <strong>Part-Smart ZA</strong> and indexed for prospective parts buyers across South Africa.
+          </p>
+          ${taxConfig.emailBodyCustomNote ? `<p class="lead" style="background:#fef3c7; border-left: 3px solid #f59e0b; padding: 10px 14px; border-radius: 4px; color: #92400e; font-size: 13px;">${taxConfig.emailBodyCustomNote}</p>` : ''}
+          
+          <table class="table">
+            <tr><th colspan="2">Subscription Settlement Details</th></tr>
+            <tr><td><strong>Yard / Company:</strong></td><td>${seller.companyName}</td></tr>
+            <tr><td><strong>Subscription Tier:</strong></td><td>${payment.planName}</td></tr>
+            <tr><td><strong>Invoice Number:</strong></td><td><code>${payment.invoiceNumber}</code></td></tr>
+            <tr><td><strong>Settlement Date:</strong></td><td>${paymentDateFormatted}</td></tr>
+            <tr><td><strong>Active Period Until:</strong></td><td>${cycleEndFormatted}</td></tr>
+            <tr><td><strong>Payment Method & Reference:</strong></td><td>${payment.paymentMethod} (${payment.reference})</td></tr>
+            <tr><td><strong>Subtotal (Excl. VAT):</strong></td><td>${exVat}</td></tr>
+            <tr><td><strong>VAT (${taxConfig.vatRatePercent}% SARS):</strong></td><td>${formattedVat}</td></tr>
+            <tr><td><strong>Total Paid (Incl. VAT):</strong></td><td style="color: #b45309; font-size: 15px;">${formattedAmount}</td></tr>
+          </table>
+
+          <div class="attachment-box">
+            <div>
+              <div class="att-name">📎 ${attachmentFilename}</div>
+              <div class="att-sub">Official SARS Section 20(4) Tax Invoice (PDF) Attached</div>
+            </div>
+            <span style="background: #0f172a; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">Attached</span>
+          </div>
+        </div>
+        <div class="footer">
+          <strong>Supplier:</strong> ${taxConfig.companyLegalName} | VAT Reg: ${taxConfig.vatRegistrationNumber} | Reg: ${taxConfig.cipcRegistrationNumber}<br/>
+          ${taxConfig.registeredAddress}<br/>
+          Need assistance? Contact accounts at <a href="mailto:${taxConfig.billingEmail}">${taxConfig.billingEmail}</a> or ${taxConfig.billingPhone}.<br/>
+          <em>${taxConfig.taxComplianceNotice}</em>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const plainText = `
+PART-SMART ZA - PAYMENT CONFIRMATION & TAX INVOICE
+===================================================
+
+Dear ${seller.contactName || seller.companyName},
+
+Your monthly subscription payment has been received and verified.
+
+Subscription Details:
+---------------------------------------------------
+Yard / Company: ${seller.companyName}
+Subscription Plan: ${payment.planName}
+Invoice Number: ${payment.invoiceNumber}
+Payment Date: ${paymentDateFormatted}
+Active Period: Until ${cycleEndFormatted}
+Payment Reference: ${payment.reference}
+Subtotal (Excl. VAT): ${exVat}
+15% SARS VAT: ${formattedVat}
+Total Paid (Incl. VAT): ${formattedAmount}
+
+Attached Document:
+---------------------------------------------------
+[Attachment: ${attachmentFilename}]
+Valid electronic Tax Invoice issued in accordance with Section 20(4) of the South African VAT Act No. 89 of 1991.
+
+Supplier: ${taxConfig.companyLegalName}
+VAT Reg: ${taxConfig.vatRegistrationNumber} | CIPC: ${taxConfig.cipcRegistrationNumber}
+Address: ${taxConfig.registeredAddress}
+Email: ${taxConfig.billingEmail} | Tel: ${taxConfig.billingPhone}
+  `.trim();
+
+  return {
+    recipient: seller.email,
+    subject,
+    attachmentFilename,
+    html,
+    plainText
+  };
+}
+
