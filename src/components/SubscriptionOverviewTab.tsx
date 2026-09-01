@@ -32,6 +32,7 @@ import {
   X
 } from 'lucide-react';
 import { Seller, SubscriptionPlan, SubscriptionPaymentRecord, OwnerSettings } from '../types';
+import { downloadInvoicePdf } from '../lib/pdfInvoiceGenerator';
 
 interface SubscriptionOverviewTabProps {
   seller: Seller;
@@ -40,6 +41,7 @@ interface SubscriptionOverviewTabProps {
   getPlanEffectivePricing: (planInput: string | SubscriptionPlan) => any;
   onSubmitEftProof: (reference: string) => void;
   onNavigateToPlans: () => void;
+  onNavigateToPaymentConfig?: () => void;
   onSelectPlanUpgrade?: (planId: string) => void;
 }
 
@@ -145,6 +147,7 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
   getPlanEffectivePricing,
   onSubmitEftProof,
   onNavigateToPlans,
+  onNavigateToPaymentConfig,
   onSelectPlanUpgrade
 }) => {
   // Pricing
@@ -225,6 +228,32 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
 
   // Selected Invoice Modal State
   const [selectedInvoice, setSelectedInvoice] = useState<SubscriptionPaymentRecord | null>(null);
+
+  // PDF Generation State
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
+  const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
+
+  // Download PDF Receipt function
+  const handleDownloadPdf = async (payment: SubscriptionPaymentRecord) => {
+    try {
+      setDownloadingPdfId(payment.id);
+      await downloadInvoicePdf({
+        seller,
+        payment,
+        ownerSettings
+      });
+      setDownloadSuccessId(payment.id);
+      setNotice(`Tax Invoice & Receipt (${payment.invoiceNumber}) downloaded as print-ready PDF.`);
+      setTimeout(() => {
+        setDownloadSuccessId(null);
+      }, 3500);
+    } catch (err) {
+      console.error('Error generating PDF receipt:', err);
+      setNotice('Could not generate PDF receipt. Please use Print Tax Invoice or try again.');
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -404,6 +433,19 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
 
           {/* Right Action buttons */}
           <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+            {onNavigateToPaymentConfig && (
+              <button
+                id="btn-overview-to-payment-config"
+                type="button"
+                onClick={onNavigateToPaymentConfig}
+                className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+                title="Configure Primary Payment Method, EFT Banking & Card Details"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Payment Settings</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsEftModalOpen(true)}
@@ -682,7 +724,7 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
                   <th className="py-3 px-3">Amount (ZAR)</th>
                   <th className="py-3 px-3">Method & Reference</th>
                   <th className="py-3 px-3 text-center">Status</th>
-                  <th className="py-3 px-3 text-right">Tax Invoice</th>
+                  <th className="py-3 px-3 text-right">Tax Invoice & Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -772,17 +814,49 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
                         )}
                       </td>
 
-                      {/* Tax Invoice Action Button */}
+                      {/* Tax Invoice & PDF Download Actions */}
                       <td className="py-3.5 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedInvoice(payment)}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/40 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                          title="View and print official South African Tax Invoice"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-amber-400" />
-                          <span>View Invoice</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Download PDF Receipt Button */}
+                          <button
+                            id={`btn-download-pdf-${payment.id}`}
+                            type="button"
+                            onClick={() => handleDownloadPdf(payment)}
+                            disabled={downloadingPdfId === payment.id}
+                            className={`px-2.5 py-1.5 border rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+                              downloadSuccessId === payment.id
+                                ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
+                                : downloadingPdfId === payment.id
+                                ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-wait'
+                                : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 hover:border-amber-500/60 text-amber-300 hover:text-amber-200'
+                            }`}
+                            title="Download official PDF Tax Invoice Receipt for your accounting records"
+                          >
+                            {downloadingPdfId === payment.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                            ) : downloadSuccessId === payment.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5 text-amber-400" />
+                            )}
+                            <span className="hidden sm:inline">
+                              {downloadingPdfId === payment.id ? 'Saving...' : downloadSuccessId === payment.id ? 'Saved' : 'Download PDF'}
+                            </span>
+                            <span className="sm:hidden">PDF</span>
+                          </button>
+
+                          {/* View Invoice Modal Button */}
+                          <button
+                            id={`btn-view-invoice-${payment.id}`}
+                            type="button"
+                            onClick={() => setSelectedInvoice(payment)}
+                            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-xl text-xs font-medium transition-all inline-flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+                            title="Preview official South African Tax Invoice on screen"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="hidden sm:inline">View</span>
+                          </button>
+                        </div>
                       </td>
 
                     </tr>
@@ -919,12 +993,43 @@ export const SubscriptionOverviewTab: React.FC<SubscriptionOverviewTabProps> = (
 
               <div className="flex items-center gap-2">
                 <button
+                  id="btn-modal-download-pdf"
+                  type="button"
+                  onClick={() => handleDownloadPdf(selectedInvoice)}
+                  disabled={downloadingPdfId === selectedInvoice.id}
+                  className={`px-3 py-1.5 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+                    downloadSuccessId === selectedInvoice.id
+                      ? 'bg-emerald-500 text-slate-950'
+                      : downloadingPdfId === selectedInvoice.id
+                      ? 'bg-slate-800 text-slate-400 cursor-wait'
+                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                  }`}
+                  title="Download official South African Tax Invoice as PDF"
+                >
+                  {downloadingPdfId === selectedInvoice.id ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : downloadSuccessId === selectedInvoice.id ? (
+                    <Check className="w-3.5 h-3.5 text-slate-950 font-black" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {downloadingPdfId === selectedInvoice.id
+                      ? 'Generating PDF...'
+                      : downloadSuccessId === selectedInvoice.id
+                      ? 'Downloaded PDF!'
+                      : 'Download PDF Receipt'}
+                  </span>
+                </button>
+
+                <button
+                  id="btn-modal-print-invoice"
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Tax Invoice</span>
+                  <Printer className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Print</span>
                 </button>
                 <button
                   type="button"

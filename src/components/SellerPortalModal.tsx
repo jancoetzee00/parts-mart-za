@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import QRCode from 'qrcode';
 import {
   X,
@@ -58,6 +58,7 @@ import { TierSavingsCalculator } from './TierSavingsCalculator';
 import { WhatsappBroadcastTool } from './WhatsappBroadcastTool';
 import { WhatsappInventoryExportModal } from './WhatsappInventoryExportModal';
 import { SubscriptionOverviewTab } from './SubscriptionOverviewTab';
+import { PaymentMethodConfigScreen } from './PaymentMethodConfigScreen';
 import { generateWhatsappInquiryUrl, buildWhatsappInquiryText } from '../lib/whatsapp';
 import {
   InventoryItem,
@@ -100,12 +101,46 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'broadcast' | 'subscription_overview' | 'subscription' | 'outofoffice' | 'switch_account' | 'register'>('inventory');
-  const [subscriptionSubView, setSubscriptionSubView] = useState<'calculator' | 'matrix'>('calculator');
+  const [subscriptionSubView, setSubscriptionSubView] = useState<'payment_config' | 'calculator' | 'matrix'>('payment_config');
+  const [isExpiryBannerDismissed, setIsExpiryBannerDismissed] = useState<boolean>(false);
   
   // Notice & notification state
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [itemPendingDelete, setItemPendingDelete] = useState<InventoryItem | null>(null);
+
+  // 3-Day Subscription Expiry Detection and Metrics
+  const subscriptionAlert = useMemo(() => {
+    if (!activeSeller) return null;
+    const now = new Date();
+    const dueDate = activeSeller.subscriptionDueDate ? new Date(activeSeller.subscriptionDueDate) : null;
+    if (!dueDate || isNaN(dueDate.getTime())) return null;
+
+    const diffMs = dueDate.getTime() - now.getTime();
+    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    const isOverdue = activeSeller.subscriptionStatus === 'unpaid' || daysRemaining <= 0;
+    const isExpiringWithin3Days = daysRemaining <= 3 && daysRemaining > 0;
+    const isPendingVerification = activeSeller.subscriptionStatus === 'pending_verification';
+
+    // Trigger alert when subscription is within 3 days of expiring or overdue
+    const shouldAlert = isExpiringWithin3Days || isOverdue;
+
+    return {
+      shouldAlert,
+      daysRemaining,
+      dueDate,
+      isOverdue,
+      isExpiringWithin3Days,
+      isPendingVerification,
+      formattedDueDate: dueDate.toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' })
+    };
+  }, [activeSeller?.subscriptionDueDate, activeSeller?.subscriptionStatus, activeSeller?.id]);
+
+  // Reset banner dismissal on seller switch
+  React.useEffect(() => {
+    setIsExpiryBannerDismissed(false);
+  }, [activeSeller?.id]);
 
   // Yard-level out of office state
   const [yardOofEnabled, setYardOofEnabled] = useState<boolean>(activeSeller?.outOfOfficeEnabled || false);
@@ -1159,7 +1194,32 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Seller Portal & Inventory Management</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold">Seller Portal & Inventory Management</h2>
+                {subscriptionAlert && subscriptionAlert.shouldAlert && (
+                  <button
+                    id="btn-header-expiry-alert-badge"
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('subscription');
+                      setSubscriptionSubView('payment_config');
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black cursor-pointer transition-all active:scale-95 border ${
+                      subscriptionAlert.isOverdue
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30'
+                    }`}
+                    title="Click to configure payment method and settle subscription"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>
+                      {subscriptionAlert.isOverdue
+                        ? 'Renewal Due • Configure Payment →'
+                        : `Expires in ${subscriptionAlert.daysRemaining}d • Configure Payment →`}
+                    </span>
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 {activeSeller ? `Logged in as: ${activeSeller.companyName}` : 'Select an account or subscribe to list parts'}
               </p>
@@ -1246,15 +1306,23 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('subscription')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              id="btn-seller-tab-subscription"
+              onClick={() => {
+                setActiveTab('subscription');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activeTab === 'subscription'
-                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                   : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              Plans & Owner Banking
+              <span>Payment & Plans</span>
+              {subscriptionAlert?.shouldAlert ? (
+                <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+                  {subscriptionAlert.isOverdue ? 'DUE' : `${subscriptionAlert.daysRemaining}D`}
+                </span>
+              ) : null}
             </button>
 
             <button
@@ -1296,6 +1364,85 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
 
         {/* Tab Body */}
         <div className="p-6 space-y-6 flex-1">
+
+          {/* 3-Day Subscription Expiry Visual Notification Alert Banner */}
+          {subscriptionAlert && subscriptionAlert.shouldAlert && !isExpiryBannerDismissed && (
+            <div
+              id="alert-subscription-expiring"
+              className={`p-4 sm:p-5 rounded-2xl border shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all animate-fadeIn relative overflow-hidden ${
+                subscriptionAlert.isOverdue
+                  ? 'bg-gradient-to-r from-rose-950/90 via-slate-900 to-rose-950/90 border-rose-500/60 text-rose-200'
+                  : 'bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-amber-500/60 text-amber-200'
+              }`}
+            >
+              {/* Background ambient pulse */}
+              <div
+                className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none ${
+                  subscriptionAlert.isOverdue ? 'bg-rose-500/10' : 'bg-amber-500/10'
+                }`}
+              />
+
+              <div className="flex items-start sm:items-center gap-3.5 relative z-10">
+                <div
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                    subscriptionAlert.isOverdue
+                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                  }`}
+                >
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-xs sm:text-sm uppercase tracking-wider text-white">
+                      {subscriptionAlert.isOverdue
+                        ? '🚨 Subscription Overdue — Immediate Action Required'
+                        : `⚡ Subscription Expiring Soon (${subscriptionAlert.daysRemaining} Day${subscriptionAlert.daysRemaining === 1 ? '' : 's'} Remaining)`}
+                    </span>
+                    <span
+                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                        subscriptionAlert.isOverdue
+                          ? 'bg-rose-500 text-slate-950'
+                          : 'bg-amber-400 text-slate-950'
+                      }`}
+                    >
+                      {subscriptionAlert.isOverdue ? 'EXPIRED / UNPAID' : `${subscriptionAlert.daysRemaining} DAYS LEFT`}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                    Your subscription for <strong className="text-white">{activeSeller?.companyName}</strong> expires on <strong className="text-amber-300">{subscriptionAlert.formattedDueDate}</strong>. Configure your preferred payment method (EFT, Card, or WhatsApp) or settle the invoice now to keep your parts inventory active and maintain WhatsApp buyer leads.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end md:self-center relative z-10">
+                <button
+                  id="btn-alert-configure-payment"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('subscription');
+                    setSubscriptionSubView('payment_config');
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-xl transition-all flex items-center gap-2 cursor-pointer active:scale-95 whitespace-nowrap"
+                  title="Open Payment Method Configuration Screen"
+                >
+                  <CreditCard className="w-4 h-4 text-slate-950" />
+                  <span>Configure Payment Method →</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsExpiryBannerDismissed(true)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors cursor-pointer"
+                  title="Dismiss notification for this session"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Action Notice Notification Banner */}
           {actionNotice && (
@@ -1801,7 +1948,14 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     submitPaymentProof(activeSeller.id, ref);
                     showNotice('EFT Payment Proof submitted to App Owner for verification.');
                   }}
-                  onNavigateToPlans={() => setActiveTab('subscription')}
+                  onNavigateToPlans={() => {
+                    setActiveTab('subscription');
+                    setSubscriptionSubView('calculator');
+                  }}
+                  onNavigateToPaymentConfig={() => {
+                    setActiveTab('subscription');
+                    setSubscriptionSubView('payment_config');
+                  }}
                   onSelectPlanUpgrade={(pId) => {
                     handleSelectPlanForActiveSeller(pId as SubscriptionPlanId);
                   }}
@@ -1814,15 +1968,15 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
           {activeTab === 'subscription' && (
             <div className="space-y-8">
               
-              {/* SUBVIEW SWITCHER: CALCULATOR VS MATRIX */}
+              {/* SUBVIEW SWITCHER: PAYMENT CONFIG VS CALCULATOR VS MATRIX */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                    <Calculator className="w-4 h-4" />
+                    <CreditCard className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Subscription Tools & Pricing</h4>
-                    <p className="text-[11px] text-slate-400">Compare Basic vs Premium savings or view full feature matrix</p>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Subscription & Payment Control Center</h4>
+                    <p className="text-[11px] text-slate-400">Configure payment method, view bank details, or calculate tier savings</p>
                   </div>
                 </div>
 
@@ -1832,10 +1986,27 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     type="button"
                     onClick={() => setActiveTab('subscription_overview')}
                     className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-amber-400 hover:text-amber-300 hover:bg-slate-800 border border-amber-500/30"
-                    title="View Billing Cycle Progress Bar & Historical Payments"
+                    title="View Billing Cycle Progress Bar & Historical Invoices"
                   >
                     <CalendarCheck className="w-3.5 h-3.5 text-amber-400" />
                     <span>Billing Cycle & Invoices</span>
+                  </button>
+
+                  <button
+                    id="btn-subview-payment-config"
+                    type="button"
+                    onClick={() => setSubscriptionSubView('payment_config')}
+                    className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      subscriptionSubView === 'payment_config'
+                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Payment Methods & Renewal</span>
+                    {subscriptionAlert?.shouldAlert && (
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    )}
                   </button>
 
                   <button
@@ -1844,12 +2015,12 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     onClick={() => setSubscriptionSubView('calculator')}
                     className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       subscriptionSubView === 'calculator'
-                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
                     <Calculator className="w-3.5 h-3.5" />
-                    <span>Savings & ROI Calculator</span>
+                    <span>ROI Calculator</span>
                   </button>
 
                   <button
@@ -1858,18 +2029,48 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                     onClick={() => setSubscriptionSubView('matrix')}
                     className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       subscriptionSubView === 'matrix'
-                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
-                    <span>Comparison Grid</span>
+                    <span>Tier Matrix</span>
                   </button>
                 </div>
               </div>
 
-              {/* VIEW 1: INTERACTIVE TIER SAVINGS CALCULATOR */}
-              {subscriptionSubView === 'calculator' ? (
+              {/* VIEW 1: PAYMENT METHOD CONFIGURATION SCREEN */}
+              {subscriptionSubView === 'payment_config' ? (
+                activeSeller ? (
+                  <PaymentMethodConfigScreen
+                    seller={activeSeller}
+                    ownerSettings={ownerSettings}
+                    subscriptionPlans={subscriptionPlans && subscriptionPlans.length > 0 ? subscriptionPlans : SUBSCRIPTION_PLANS}
+                    getPlanEffectivePricing={getPlanEffectivePricing}
+                    onSubmitEftProof={(ref) => {
+                      submitPaymentProof(activeSeller.id, ref);
+                      showNotice('EFT Payment Proof submitted to App Owner for verification.');
+                    }}
+                    onNavigateToOverview={() => setActiveTab('subscription_overview')}
+                    onNavigateToPlans={() => setSubscriptionSubView('calculator')}
+                  />
+                ) : (
+                  <div className="bg-slate-950 p-8 rounded-2xl border border-slate-800 text-center space-y-3">
+                    <Info className="w-8 h-8 text-amber-400 mx-auto" />
+                    <h4 className="text-sm font-bold text-white">Select or Register a Seller Account</h4>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      To configure payment methods, manage recurring renewals, or submit EFT proof, please register your equipment yard or switch to an existing seller profile.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('register')}
+                      className="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Register New Yard Now
+                    </button>
+                  </div>
+                )
+              ) : subscriptionSubView === 'calculator' ? (
+                /* VIEW 2: INTERACTIVE TIER SAVINGS CALCULATOR */
                 <TierSavingsCalculator
                   subscriptionPlans={subscriptionPlans && subscriptionPlans.length > 0 ? subscriptionPlans : SUBSCRIPTION_PLANS}
                   activePlanId={activeSeller ? activeSeller.planId : regForm.planId}
@@ -1885,7 +2086,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                   }}
                 />
               ) : (
-                /* VIEW 2: TIERED PLANS COMPARISON TABLE */
+                /* VIEW 3: TIERED PLANS COMPARISON TABLE */
                 <div className="bg-slate-950/80 p-6 rounded-3xl border border-slate-800">
                   {renderPlansComparisonTable(
                     activeSeller ? activeSeller.planId : regForm.planId,
