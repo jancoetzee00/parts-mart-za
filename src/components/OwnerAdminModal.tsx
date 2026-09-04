@@ -313,7 +313,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
   const handleSaveGlobalOofDefaults = (e: React.FormEvent) => {
     e.preventDefault();
     updateOwnerWhatsappSettings({
-      enabled: true,
+      enabledByDefault: true,
       platformEmergencyPhone: globalEmergencyPhone.trim(),
       defaultOutOfOfficeTemplate: globalDefaultTemplate.trim()
     });
@@ -483,7 +483,6 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
         item.make.toLowerCase().includes(q) ||
         item.model.toLowerCase().includes(q) ||
         (item.partNumber && item.partNumber.toLowerCase().includes(q)) ||
-        (item.oemNumber && item.oemNumber.toLowerCase().includes(q)) ||
         item.sellerName.toLowerCase().includes(q) ||
         item.city.toLowerCase().includes(q) ||
         item.province.toLowerCase().includes(q);
@@ -3602,6 +3601,7 @@ export const OwnerAdminModal: React.FC<OwnerAdminModalProps> = ({ onClose }) => 
         {/* 4. SELLER TAX INVOICE PREVIEW & PRINT MODAL */}
         {activeTaxModalPayment && (
           <TaxInvoiceModal
+            isOpen={true}
             payment={activeTaxModalPayment}
             seller={activeTaxModalSeller}
             ownerSettings={{

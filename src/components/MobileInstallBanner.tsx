@@ -37,75 +37,89 @@ export const MobileInstallBanner: React.FC<MobileInstallBannerProps> = ({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check if dismissed in this session
-    const isDismissed = sessionStorage.getItem('partsmart_mobile_banner_dismissed');
+    try {
+      // Check if dismissed in this session
+      let isDismissed = false;
+      try {
+        isDismissed = sessionStorage.getItem('partsmart_mobile_banner_dismissed') === 'true';
+      } catch {
+        // Storage restricted in private browsing
+      }
 
-    // Check if already running in standalone PWA mode
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
+      // Check if already running in standalone PWA mode
+      let isStandalone = false;
+      try {
+        isStandalone =
+          window.matchMedia?.('(display-mode: standalone)')?.matches ||
+          (window.navigator as any)?.standalone === true;
+      } catch {
+        // matchMedia or navigator.standalone restricted
+      }
 
-    if (isStandalone) {
-      setInstallStatus('installed');
-      return;
-    }
+      if (isStandalone) {
+        setInstallStatus('installed');
+        return;
+      }
 
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isTouch = navigator.maxTouchPoints > 1;
-    const width = window.innerWidth;
+      const ua = (window.navigator.userAgent || '').toLowerCase();
+      const isTouch = (navigator.maxTouchPoints || 0) > 1;
+      const width = window.innerWidth || document.documentElement.clientWidth || 360;
 
-    const detectedIsIos =
-      ua.includes('iphone') ||
-      ua.includes('ipad') ||
-      ua.includes('ipod') ||
-      (ua.includes('mac') && isTouch && width >= 768);
+      const detectedIsIos =
+        ua.includes('iphone') ||
+        ua.includes('ipad') ||
+        ua.includes('ipod') ||
+        (ua.includes('mac') && isTouch && width >= 768);
 
-    setIsIos(detectedIsIos);
+      setIsIos(detectedIsIos);
 
-    const isTablet = width >= 768 && width <= 1024 && isTouch;
-    const isMobile = width < 768 || ua.includes('iphone') || (ua.includes('android') && !ua.includes('tablet'));
+      const isTablet = width >= 768 && width <= 1024 && isTouch;
+      const isMobile = width < 768 || ua.includes('iphone') || (ua.includes('android') && !ua.includes('tablet'));
 
-    if (isTablet) {
-      setDeviceType('tablet');
-    } else if (isMobile) {
-      setDeviceType('mobile');
-    } else {
-      setDeviceType('desktop');
-    }
+      if (isTablet) {
+        setDeviceType('tablet');
+      } else if (isMobile) {
+        setDeviceType('mobile');
+      } else {
+        setDeviceType('desktop');
+      }
 
-    // Show banner by default on mobile/tablet if not dismissed
-    if (!isDismissed && (isMobile || isTablet)) {
-      setIsVisible(true);
-    }
-
-    // Capture the browser's native beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Make the banner visible if not dismissed
-      if (!isDismissed) {
+      // Show banner by default on mobile/tablet if not dismissed
+      if (!isDismissed && (isMobile || isTablet)) {
         setIsVisible(true);
       }
-    };
 
-    // Listen for the appinstalled event
-    const handleAppInstalled = () => {
-      setInstallStatus('installed');
-      setDeferredPrompt(null);
-      setTimeout(() => {
-        setIsVisible(false);
-      }, 3000);
-    };
+      // Capture the browser's native beforeinstallprompt event
+      const handleBeforeInstallPrompt = (e: Event) => {
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        // Stash the event so it can be triggered later
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
+        // Make the banner visible if not dismissed
+        if (!isDismissed) {
+          setIsVisible(true);
+        }
+      };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+      // Listen for the appinstalled event
+      const handleAppInstalled = () => {
+        setInstallStatus('installed');
+        setDeferredPrompt(null);
+        setTimeout(() => {
+          setIsVisible(false);
+        }, 3000);
+      };
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.addEventListener('appinstalled', handleAppInstalled);
+
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      };
+    } catch (err) {
+      console.warn('Notice during MobileInstallBanner init:', err);
+    }
   }, []);
 
   // Handler for custom "Install App" action
@@ -143,7 +157,11 @@ export const MobileInstallBanner: React.FC<MobileInstallBannerProps> = ({
   const handleDismiss = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setIsVisible(false);
-    sessionStorage.setItem('partsmart_mobile_banner_dismissed', 'true');
+    try {
+      sessionStorage.setItem('partsmart_mobile_banner_dismissed', 'true');
+    } catch {
+      // Ignore if sessionStorage is disabled/quota exceeded
+    }
   };
 
   if (!isVisible) return null;

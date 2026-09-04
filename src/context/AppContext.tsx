@@ -337,34 +337,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync to LocalStorage (as offline backup)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+    try {
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+    } catch (e) {
+      console.warn('Could not sync inventory to localStorage:', e);
+    }
   }, [inventory]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SELLERS, JSON.stringify(sellers));
+    try {
+      localStorage.setItem(STORAGE_KEYS.SELLERS, JSON.stringify(sellers));
+    } catch (e) {
+      console.warn('Could not sync sellers to localStorage:', e);
+    }
   }, [sellers]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.OWNER_SETTINGS, JSON.stringify(ownerSettings));
+    try {
+      localStorage.setItem(STORAGE_KEYS.OWNER_SETTINGS, JSON.stringify(ownerSettings));
+    } catch (e) {
+      console.warn('Could not sync owner settings to localStorage:', e);
+    }
   }, [ownerSettings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SPECIALS, JSON.stringify(specials));
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPECIALS, JSON.stringify(specials));
+    } catch (e) {
+      console.warn('Could not sync specials to localStorage:', e);
+    }
   }, [specials]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(competitions));
+    try {
+      localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(competitions));
+    } catch (e) {
+      console.warn('Could not sync competitions to localStorage:', e);
+    }
   }, [competitions]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.COMPETITION_ENTRIES, JSON.stringify(competitionEntries));
+    try {
+      localStorage.setItem(STORAGE_KEYS.COMPETITION_ENTRIES, JSON.stringify(competitionEntries));
+    } catch (e) {
+      console.warn('Could not sync competition entries to localStorage:', e);
+    }
   }, [competitionEntries]);
 
   useEffect(() => {
-    if (activeSellerId) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_SELLER_ID, activeSellerId);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_SELLER_ID);
+    try {
+      if (activeSellerId) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SELLER_ID, activeSellerId);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_SELLER_ID);
+      }
+    } catch (e) {
+      console.warn('Could not sync activeSellerId to localStorage:', e);
     }
   }, [activeSellerId]);
 

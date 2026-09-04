@@ -33,11 +33,12 @@ import {
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with auto-detect long-polling to prevent stream timeouts in proxy/iframe environments
+// Initialize Firestore with forced long-polling
+// This eliminates the 10-second WebSocket connection timeout in sandboxed iframe / reverse-proxy environments
 export const db = initializeFirestore(
   app,
   {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
   },
   firebaseConfig.firestoreDatabaseId
 );
@@ -92,10 +93,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.warn('Firestore Operation Info: ', JSON.stringify(errInfo));
+  if (errMessage.toLowerCase().includes('missing or insufficient permissions') || errMessage.toLowerCase().includes('permission-denied')) {
+    throw new Error(JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
-// Connection test helper
+// Connection test helper per Firebase Skill requirements
 export async function testFirebaseConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
@@ -103,7 +107,7 @@ export async function testFirebaseConnection(): Promise<boolean> {
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client operating in offline cache mode. Continuing with local data.');
+      console.warn('Please check your Firebase configuration (client operating in offline mode).');
     } else {
       console.log('Firebase connection test status:', error);
     }
@@ -156,7 +160,11 @@ export function subscribeSellers(
       onData(sellers);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );
@@ -196,7 +204,11 @@ export function subscribeInventory(
       onData(items);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );
@@ -234,7 +246,11 @@ export function subscribeOwnerSettings(
       }
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );
@@ -265,7 +281,11 @@ export function subscribeSpecials(
       onData(specials);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );
@@ -305,7 +325,11 @@ export function subscribeCompetitions(
       onData(comps);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );
@@ -336,7 +360,11 @@ export function subscribeCompetitionEntries(
       onData(entries);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (e) {
+        console.warn(`Firestore sync notice for ${path}:`, e);
+      }
       if (onError) onError(error);
     }
   );

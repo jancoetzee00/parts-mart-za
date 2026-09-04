@@ -75,6 +75,14 @@
       },
       "required": ["email", "role"]
     },
+    "TestConnection": {
+      "title": "TestConnection",
+      "description": "Health check document to verify backend connectivity",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "maxLength": 50 }
+      }
+    },
     "SellerSpecial": {
       "title": "SellerSpecial",
       "description": "Special clearance deal or promotion published by an equipment or parts seller",

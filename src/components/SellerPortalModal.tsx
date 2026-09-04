@@ -1617,7 +1617,7 @@ export const SellerPortalModal: React.FC<SellerPortalModalProps> = ({
                       </button>
 
                       <button
-                        onClick={handleOpenBatchQrModal}
+                        onClick={() => handleOpenBatchQrModal()}
                         disabled={sellerListings.length === 0}
                         className="px-4 py-2.5 bg-slate-800 hover:bg-slate-750 text-amber-400 border border-amber-500/30 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                         title="Generate and print printable QR code stickers for all inventory items"
